@@ -1,4 +1,4 @@
-Author: Samuel Begg
+Author: Samuel Begg 
 8/04/2024
 Calculate the Fisher information for an XY spin chain.
 
