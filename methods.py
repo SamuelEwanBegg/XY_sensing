@@ -33,7 +33,7 @@ def initialize_state(sites, gamma, J, h0_in, h1_in, boundary_conditions, initial
 
 		vec[0] =  1.0 #spin 1 flipped up. Note that an odd number is required to ensure correct parity with JW transformation.
 		
-		vec[1] =  1.0
+		vec[1] =  0.0
 
 		for m in range(0,sites):
 
@@ -97,17 +97,17 @@ def correlation_groundstate(sites, gamma, J , h0_in, h1_in, boundary_conditions)
 
 		fourier_def = 1
 
-	elif boundary_conditions == 'ABC' and (sites%2)==1:
+	# elif boundary_conditions == 'ABC' and (sites%2)==1:
 
-		fourier_def = 0
+	# 	fourier_def = 0
 
-	elif boundary_conditions == 'PBC' and (sites%2)==0:
+	# elif boundary_conditions == 'PBC' and (sites%2)==0:
 
-		fourier_def = 0
+	# 	fourier_def = 0
 
 	elif boundary_conditions == 'PBC' and (sites%2)==1:
 
-		fourier_def = 1
+		fourier_def = 0
 
 	
 	if fourier_def == 0:
@@ -116,7 +116,7 @@ def correlation_groundstate(sites, gamma, J , h0_in, h1_in, boundary_conditions)
 				
 				kval = -np.pi + 2*kk*np.pi/sites
 				
-				thetaK[kk] = np.arctan2( J * gamma * np.sin(kval), - J * np.cos(kval) + h0_in + h1_in)
+				thetaK[kk] = np.arctan2( - J * gamma * np.sin(kval), - J * np.cos(kval) - h0_in - h1_in)
 
 		for m in range(0,sites):
 			
@@ -135,8 +135,8 @@ def correlation_groundstate(sites, gamma, J , h0_in, h1_in, boundary_conditions)
 		for kk in range(0,int(sites)):
 				
 				kval = -np.pi + (2*kk+1)*np.pi/sites #(2*(kk) + 1)*np.pi/sites
-				
-				thetaK[kk] = np.arctan2( J * gamma * np.sin(kval), - J * np.cos(kval) + h0_in + h1_in)
+
+				thetaK[kk] = np.arctan2( - J * gamma * np.sin(kval), - J * np.cos(kval) - h0_in - h1_in)
 
 		for m in range(0,sites):
 			
@@ -248,6 +248,10 @@ def integrator_matrices(obs, Dag_obs, J, gamma, h0, h1, times, dt, measure_inter
 
 	
 	for ii in range(0,times):
+
+		if (ii%1000) == 0:
+
+			print(ii)
 
 		Ann_obs = copy.copy(np.conj(np.transpose(Dag_obs))) #Refer to EOM in notes for reasoning here. Have terms c^{dag}_m c^{dag}_n and c_m c_n, whereas conjugate transpose of first term is c_n cm, expect minus sign but gives wrong answer.
 		
@@ -399,6 +403,10 @@ def integrator(obs, Dag_obs, J, gamma, h0, h1, times, dt, measure_interval, site
 
 	kk = 0
 	for ii in range(0,times):
+
+		if (ii%1000) == 0:
+
+			print(ii)
 
 		Ann_obs = copy.copy(np.conj(np.transpose(Dag_obs))) #Refer to EOM in notes for reasoning here. Have terms c^{dag}_m c^{dag}_n and c_m c_n, whereas conjugate transpose of first term is c_n cm, expect minus sign but gives wrong answer.
 		
