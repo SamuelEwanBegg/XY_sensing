@@ -1,9 +1,7 @@
 import numpy as np
-import scipy.linalg as lin
 from datetime import datetime
 import copy
-from joblib import Parallel, delayed
-
+import scipy.linalg as lin
 
 
 def initialize_state(sites, gamma, J, h0_in, h1_in, boundary_conditions, initial_state):
@@ -26,8 +24,6 @@ def initialize_state(sites, gamma, J, h0_in, h1_in, boundary_conditions, initial
 	obs = np.zeros([sites,sites],dtype = complex) #correlation matrix <c^{dag}_i c_j>
 
 	Dag_obs = np.zeros([sites,sites],dtype = complex) #correlation matrix <c^{dag}_i c^{dag}_j>
-
-	idmat = 1.0*np.identity(sites,dtype = complex)
 
 	if initial_state == 'flips':
 
@@ -85,7 +81,75 @@ def initialize_state(sites, gamma, J, h0_in, h1_in, boundary_conditions, initial
 
 	return obs, Dag_obs
 
+
 def correlation_groundstate(sites, gamma, J , h0_in, h1_in, boundary_conditions):
+    
+	obs = np.zeros([sites,sites],dtype = complex) 
+
+	Dag_obs = np.zeros([sites,sites],dtype = complex) 
+
+	thetaK = np.zeros(sites)
+
+	if boundary_conditions == 'ABC' and (sites%2)==0:
+
+		fourier_def = 1
+
+	# elif boundary_conditions == 'ABC' and (sites%2)==1:
+
+	# 	fourier_def = 0
+
+	# elif boundary_conditions == 'PBC' and (sites%2)==0:
+
+	# 	fourier_def = 0
+
+	elif boundary_conditions == 'PBC' and (sites%2)==1:
+
+		fourier_def = 0
+
+	
+	if fourier_def == 0:
+
+		#for kk in range(0,sites):
+				
+		kval = -np.pi + 2*np.arange(0,sites)*np.pi/sites
+				
+		thetaK = np.arctan2( J * gamma * np.sin(kval), J * np.cos(kval) + h0_in + h1_in)
+
+		for m in range(0,sites):
+			
+			for n in range(0,sites):
+
+				#for kk in range(0,sites):
+
+				#kval = -np.pi + 2*kk*np.pi/sites
+
+				Dag_obs[m,n] = np.sum(1.0/sites * np.exp(-1j*(n-m)*kval) * (1j) * 0.5 * np.sin(thetaK))
+
+				obs[m,n] = np.sum(1.0/sites * np.exp(-1j*(n-m)*kval) * (np.cos(thetaK/2.0))**2)
+					
+	if fourier_def == 1:
+
+		#for kk in range(0,int(sites)):
+				
+		kval = -np.pi + (2*np.arange(0,sites)+1)*np.pi/sites #(2*(kk) + 1)*np.pi/sites
+
+		thetaK = np.arctan2( J * gamma * np.sin(kval), J * np.cos(kval) + h0_in + h1_in)
+
+		for m in range(0,sites):
+			
+			for n in range(0,sites):
+
+				#for kk in range(0,int(sites)):
+
+				#kval = -np.pi + (2*kk+1)*np.pi/sites #(2*(kk) + 1)*np.pi/sites
+
+				Dag_obs[m,n] = np.sum(1.0/sites * np.exp(-1j*(n-m)*kval) * (1j) * 0.5 * np.sin(thetaK))
+
+				obs[m,n] = np.sum(1.0/sites * np.exp(-1j*(n-m)*kval) * (np.cos(thetaK/2.0))**2)
+	
+	return obs, Dag_obs
+
+#def correlation_groundstate_loops(sites, gamma, J , h0_in, h1_in, boundary_conditions):
     
 	obs = np.zeros([sites,sites],dtype = complex) 
 
@@ -116,7 +180,7 @@ def correlation_groundstate(sites, gamma, J , h0_in, h1_in, boundary_conditions)
 				
 				kval = -np.pi + 2*kk*np.pi/sites
 				
-				thetaK[kk] = np.arctan2( - J * gamma * np.sin(kval), - J * np.cos(kval) - h0_in - h1_in)
+				thetaK[kk] = np.arctan2( J * gamma * np.sin(kval), J * np.cos(kval) + h0_in + h1_in)
 
 		for m in range(0,sites):
 			
@@ -126,9 +190,9 @@ def correlation_groundstate(sites, gamma, J , h0_in, h1_in, boundary_conditions)
 
 					kval = -np.pi + 2*kk*np.pi/sites
 
-					Dag_obs[m,n] += 1.0/sites * np.exp(-1j*(n-m)*kval) * (-1j) * 0.5 * np.sin(thetaK[kk])
+					Dag_obs[m,n] += 1.0/sites * np.exp(-1j*(n-m)*kval) * (1j) * 0.5 * np.sin(thetaK[kk])
 
-					obs[m,n] += 1.0/sites * np.exp(-1j*(n-m)*kval) * (np.sin(thetaK[kk]/2.0))**2
+					obs[m,n] += 1.0/sites * np.exp(-1j*(n-m)*kval) * (np.cos(thetaK[kk]/2.0))**2
 					
 	if fourier_def == 1:
 
@@ -136,7 +200,7 @@ def correlation_groundstate(sites, gamma, J , h0_in, h1_in, boundary_conditions)
 				
 				kval = -np.pi + (2*kk+1)*np.pi/sites #(2*(kk) + 1)*np.pi/sites
 
-				thetaK[kk] = np.arctan2( - J * gamma * np.sin(kval), - J * np.cos(kval) - h0_in - h1_in)
+				thetaK[kk] = np.arctan2( J * gamma * np.sin(kval), J * np.cos(kval) + h0_in + h1_in)
 
 		for m in range(0,sites):
 			
@@ -146,9 +210,9 @@ def correlation_groundstate(sites, gamma, J , h0_in, h1_in, boundary_conditions)
 
 					kval = -np.pi + (2*kk+1)*np.pi/sites #(2*(kk) + 1)*np.pi/sites
 
-					Dag_obs[m,n] += 1.0/sites * np.exp(-1j*(n-m)*kval) * (-1j) * 0.5 * np.sin(thetaK[kk])
+					Dag_obs[m,n] += 1.0/sites * np.exp(-1j*(n-m)*kval) * (1j) * 0.5 * np.sin(thetaK[kk])
 
-					obs[m,n] += 1.0/sites * np.exp(-1j*(n-m)*kval) * (np.sin(thetaK[kk]/2.0))**2
+					obs[m,n] += 1.0/sites * np.exp(-1j*(n-m)*kval) * (np.cos(thetaK[kk]/2.0))**2
 	
 	return obs, Dag_obs
 
@@ -378,7 +442,7 @@ def integrator_matrices(obs, Dag_obs, J, gamma, h0, h1, times, dt, measure_inter
 	return Corr_mat_list, Dag_mat_list, corr_diag
 
 
-def integrator(obs, Dag_obs, J, gamma, h0, h1, times, dt, measure_interval, sites, boundary_conditions, method):
+#def integrator(obs, Dag_obs, J, gamma, h0, h1, times, dt, measure_interval, sites, boundary_conditions, method):
 
 	print("Only works for PBC fermions. Replaced by Integrator Matrices")
 
@@ -831,14 +895,27 @@ def Fisher_Groundstate(J, gamma, h0_in, h1, sites, sub_system_range, tol, shift,
 
 	for kk in range(0,loop):	
 
+		startTime = datetime.now()
+
 		if derivative_estimator == 'order2':
 
 			Corr_mat, Dag_mat = correlation_groundstate(sites, gamma, J, h0_in + shift*kk, h1, boundary_conditions)
 
+			if kk == 0:
+
+				particle_numL = copy.copy(Corr_mat[0,0])
+
 		elif derivative_estimator == 'order4':
 			
 			Corr_mat, Dag_mat = correlation_groundstate(sites, gamma, J, h0_in -2*shift + shift*kk, h1, boundary_conditions)
-		
+
+			if kk == 2:
+
+				particle_numL = copy.copy(Corr_mat[0,0])
+
+		print(datetime.now() - startTime,'Time to calculate the ground-state correlation matrices')
+
+		startTime = datetime.now()
 
 		for ss in range(0,np.size(sub_system_range)):
 
@@ -882,6 +959,7 @@ def Fisher_Groundstate(J, gamma, h0_in, h1, sites, sub_system_range, tol, shift,
 
 				Gamma5 = Gamma5 + [Gamma]
 
+		print(datetime.now() - startTime,'Time to evaluate Gamma matrix for single h0')
 
 	#Initialize matrix
 
@@ -970,4 +1048,4 @@ def Fisher_Groundstate(J, gamma, h0_in, h1, sites, sub_system_range, tol, shift,
 
 	print(datetime.now() - startTime,'End Fisher Calculation')
 
-	return Fisher
+	return [Fisher, particle_numL]
