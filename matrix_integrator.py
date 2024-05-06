@@ -28,7 +28,7 @@ N = 4
 ##############
 #Hamiltonian Parameters
 
-gamma = 0.4
+gamma = 0.1
 Jx = -1.0*(1 + gamma)
 Jy = -1.0*(1 - gamma)
 hz_amp = 1.5

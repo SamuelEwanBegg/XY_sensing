@@ -31,7 +31,7 @@ subsystem = 2 #Evaluate Fisher information for subsystem of this size
 #Build Hamiltonian
 
 Jz = 0.0
-gamma = 0.4
+gamma = 0.1
 Jx = -1.0*(1 + gamma)
 Jy = -1.0*(1 - gamma)
 hx = 0.0

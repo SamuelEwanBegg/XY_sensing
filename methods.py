@@ -90,7 +90,7 @@ def correlation_groundstate(sites, gamma, J , h0_in, h1_in, boundary_conditions)
 
 	thetaK = np.zeros(sites)
 
-	if boundary_conditions == 'ABC' and (sites%2)==0:
+	if boundary_conditions == 'ABC':
 
 		fourier_def = 1
 
@@ -102,7 +102,7 @@ def correlation_groundstate(sites, gamma, J , h0_in, h1_in, boundary_conditions)
 
 	# 	fourier_def = 0
 
-	elif boundary_conditions == 'PBC' and (sites%2)==1:
+	elif boundary_conditions == 'PBC':
 
 		fourier_def = 0
 
@@ -763,7 +763,7 @@ def Fisher_Calc(phase, obs, Dag_obs, J, gamma, h0_in, shift, h1, times, dt, meas
 				
 				#Gamma = Gamma - np.diag(np.diag(Gamma))
 
-				Gamma = 0.5*(Gamma - np.transpose(Gamma))
+				Gamma = 0.5*(Gamma - np.transpose(np.conj(Gamma)))
 
 				if kk == 0:
 					
@@ -874,7 +874,7 @@ def Fisher_Calc(phase, obs, Dag_obs, J, gamma, h0_in, shift, h1, times, dt, meas
 	return [Fisher, particle_numL ] 
 
 
-def Fisher_Groundstate(J, gamma, h0_in, h1, sites, sub_system_range, tol, shift, derivative_estimator, boundary_conditions):
+def Fisher_Groundstate(J, gamma, h0_in, h1, sites, sub_system_range, sub_system_edge, tol, shift, derivative_estimator, boundary_conditions):
 
 	idmat = 1.0*np.identity(sites,dtype = complex)
 
@@ -903,7 +903,7 @@ def Fisher_Groundstate(J, gamma, h0_in, h1, sites, sub_system_range, tol, shift,
 
 			if kk == 0:
 
-				particle_numL = copy.copy(Corr_mat[0,0])
+				particle_numL = np.mean(np.diag(Corr_mat))
 
 		elif derivative_estimator == 'order4':
 			
@@ -911,9 +911,9 @@ def Fisher_Groundstate(J, gamma, h0_in, h1, sites, sub_system_range, tol, shift,
 
 			if kk == 2:
 
-				particle_numL = copy.copy(Corr_mat[0,0])
+				particle_numL = np.mean(np.diag(Corr_mat))
 
-		print(datetime.now() - startTime,'Time to calculate the ground-state correlation matrices')
+		print(datetime.now() - startTime,'Time to calculate the initial correlation matrices')
 
 		startTime = datetime.now()
 
@@ -928,13 +928,13 @@ def Fisher_Groundstate(J, gamma, h0_in, h1, sites, sub_system_range, tol, shift,
 				for jj in range(0,sub_system):
 
 					#Note: python convention of first index being 0 means that fields all shifted by one compared to as written in notes.
-					Gamma[(2*ii),(2*jj)] = idmat[ii,jj] + 2*1j*np.imag(Corr_mat[ii,jj]+ Dag_mat[ii,jj])
+					Gamma[(2*ii),(2*jj)] = idmat[ii + sub_system_edge,jj + sub_system_edge] + 2*1j*np.imag(Corr_mat[ii + sub_system_edge, jj + sub_system_edge] + Dag_mat[ii + sub_system_edge, jj + sub_system_edge])
 		
-					Gamma[(2*ii),(2*jj+1)%(2*sub_system)] = 1j*idmat[ii,jj] - 2*1j*np.real(Corr_mat[ii,jj] - Dag_mat[ii,jj])
+					Gamma[(2*ii),(2*jj+1)%(2*sub_system)] = 1j*idmat[ii + sub_system_edge,jj + sub_system_edge] - 2*1j*np.real(Corr_mat[ii + sub_system_edge, jj + sub_system_edge] + Dag_mat[ii + sub_system_edge, jj + sub_system_edge])
 
-					Gamma[(2*ii+1)%(2*sub_system),(2*jj)] = -1j*idmat[ii,jj] + 2*1j*np.real(Corr_mat[ii,jj] + Dag_mat[ii,jj])
+					Gamma[(2*ii+1)%(2*sub_system),(2*jj)] = -1j*idmat[ii + sub_system_edge,jj + sub_system_edge] + 2*1j*np.real(Corr_mat[ii + sub_system_edge, jj + sub_system_edge] + Dag_mat[ii + sub_system_edge, jj + sub_system_edge])
 
-					Gamma[(2*ii+1)%(2*sub_system),(2*jj+1)%(2*sub_system)] = idmat[ii,jj] + 2*1j*np.imag(Corr_mat[ii,jj] - Dag_mat[ii,jj])
+					Gamma[(2*ii+1)%(2*sub_system),(2*jj+1)%(2*sub_system)] = idmat[ii + sub_system_edge,jj + sub_system_edge] + 2*1j*np.imag(Corr_mat[ii + sub_system_edge, jj + sub_system_edge] - Dag_mat[ii + sub_system_edge, jj + sub_system_edge])
 
 
 			Gamma = 0.5*(Gamma - np.transpose(Gamma))
@@ -1044,7 +1044,7 @@ def Fisher_Groundstate(J, gamma, h0_in, h1, sites, sub_system_range, tol, shift,
 		
 	print('Number of avoided divergences',avoid_index)
 
-	print('subsystem',sub_system_range)
+	#print('subsystem',sub_system_range)
 
 	print(datetime.now() - startTime,'End Fisher Calculation')
 
