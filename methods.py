@@ -876,6 +876,8 @@ def Fisher_Calc(phase, obs, Dag_obs, J, gamma, h0_in, shift, h1, times, dt, meas
 
 def Fisher_Groundstate(J, gamma, h0_in, h1, sites, sub_system_range, sub_system_edge, tol, shift, derivative_estimator, boundary_conditions):
 
+	print('h0',h0_in)
+
 	idmat = 1.0*np.identity(sites,dtype = complex)
 
 	if derivative_estimator == 'order2':
@@ -930,13 +932,16 @@ def Fisher_Groundstate(J, gamma, h0_in, h1, sites, sub_system_range, sub_system_
 					#Note: python convention of first index being 0 means that fields all shifted by one compared to as written in notes.
 					Gamma[(2*ii),(2*jj)] = idmat[ii + sub_system_edge,jj + sub_system_edge] + 2*1j*np.imag(Corr_mat[ii + sub_system_edge, jj + sub_system_edge] + Dag_mat[ii + sub_system_edge, jj + sub_system_edge])
 		
-					Gamma[(2*ii),(2*jj+1)%(2*sub_system)] = 1j*idmat[ii + sub_system_edge,jj + sub_system_edge] - 2*1j*np.real(Corr_mat[ii + sub_system_edge, jj + sub_system_edge] + Dag_mat[ii + sub_system_edge, jj + sub_system_edge])
+					Gamma[(2*ii),(2*jj+1)%(2*sub_system)] = 1j*idmat[ii + sub_system_edge,jj + sub_system_edge] - 2*1j*np.real(Corr_mat[ii + sub_system_edge, jj + sub_system_edge] - Dag_mat[ii + sub_system_edge, jj + sub_system_edge])
 
 					Gamma[(2*ii+1)%(2*sub_system),(2*jj)] = -1j*idmat[ii + sub_system_edge,jj + sub_system_edge] + 2*1j*np.real(Corr_mat[ii + sub_system_edge, jj + sub_system_edge] + Dag_mat[ii + sub_system_edge, jj + sub_system_edge])
 
 					Gamma[(2*ii+1)%(2*sub_system),(2*jj+1)%(2*sub_system)] = idmat[ii + sub_system_edge,jj + sub_system_edge] + 2*1j*np.imag(Corr_mat[ii + sub_system_edge, jj + sub_system_edge] - Dag_mat[ii + sub_system_edge, jj + sub_system_edge])
 
+			#correlation matrix for Majoranas, can use to extract density, correlations
+			corr_Gamma = copy.copy(Gamma)
 
+			#Need covariance matrix for Fisher information
 			Gamma = 0.5*(Gamma - np.transpose(Gamma))
 			
 			if kk == 0:
@@ -961,7 +966,18 @@ def Fisher_Groundstate(J, gamma, h0_in, h1, sites, sub_system_range, sub_system_
 
 		print(datetime.now() - startTime,'Time to evaluate Gamma matrix for single h0')
 
-	#Initialize matrix
+		#Run additional conistency check 
+  
+		if kk == 0:
+
+			#particle number on first site, from Majorana matrix as consistency check.
+			particle_numMaj = -1j*0.5*corr_Gamma[1,0] + 0.5
+
+			if particle_numMaj - Corr_mat[0,0] > 10**(-8):
+
+				print('WARNING: Majorana and regular Fermion expectation values do not agree')
+
+
 
 	startTime = datetime.now()
 
@@ -970,8 +986,6 @@ def Fisher_Groundstate(J, gamma, h0_in, h1, sites, sub_system_range, sub_system_
 	avoid_index = np.zeros(np.size(sub_system_range))
 	
 	for ss in range(0,np.size(sub_system_range)):
-
-		avoid_var = 0
 
 		sub_system = sub_system_range[ss]
 			
@@ -986,6 +1000,20 @@ def Fisher_Groundstate(J, gamma, h0_in, h1, sites, sub_system_range, sub_system_
 		#calculate eigenvectors of Gamma
 
 		w,v = lin.eigh(Gamma) #eigenvalues w[aa] and eigenvectors v[:,aa]
+		
+		red  =  np.asarray([(1 + np.abs(w[0]))/2,(1 - np.abs(w[0]))/2])
+
+		for oo in range(1,int(np.size(w)/2)):
+			
+			hold = np.asarray([(1 + np.abs(w[oo]))/2,(1 - np.abs(w[oo]))/2])
+			
+			red = np.kron(hold,red)
+
+		print(w)
+
+		print('sub system', sub_system, 'reduced density eigenvalues', red)
+		
+		print('sum eig',np.sum(red))
 
 		if -np.max(-w) < -1.000000001:
 		
@@ -1026,26 +1054,33 @@ def Fisher_Groundstate(J, gamma, h0_in, h1, sites, sub_system_range, sub_system_
 
 		Fisher_time = 0
 
+
+		avoid_var = 0
+
 		for rr in range(0,2*sub_system):
 			
-			for sss in range(0,2*sub_system):
+			for yy in range(0,2*sub_system):
 
-				if np.abs(1 - w[rr]*w[sss]) > tol:
+				if np.abs(1 - w[rr]*w[yy]) > tol:
 
-					Fisher_time += 0.5*(np.conj(v[:,rr]) @ GammaD @ v[:,sss]) * (np.conj(v[:,sss]) @ GammaD @ v[:,rr]) / (1 - w[rr]*w[sss])
+					#if np.abs(rr - yy) == 0: #diagonal terms
+					
+					Fisher_time += 0.5*(np.conj(v[:,rr]) @ GammaD @ v[:,yy]) * (np.conj(v[:,yy]) @ GammaD @ v[:,rr]) / (1 - w[rr]*w[yy])
+					#print('Loop',rr,yy,0.5*(np.conj(v[:,rr]) @ GammaD @ v[:,yy]) * (np.conj(v[:,yy]) @ GammaD @ v[:,rr]) / (1 - w[rr]*w[yy]))
+					#print('L',np.conj(v[:,rr]) @ GammaD @ v[:,yy])
 
 				else:
-
+					
+					Fisher_time += 0.5*(np.conj(v[:,rr]) @ GammaD @ v[:,yy]) * (np.conj(v[:,yy]) @ GammaD @ v[:,rr]) / (1 - -1)
+					
 					avoid_var = avoid_var + 1
 
 		Fisher = Fisher +  [Fisher_time] 
 
 		avoid_index[ss] = avoid_var
 		
-	print('Number of avoided divergences',avoid_index)
+	print(datetime.now() - startTime,'End Fisher Calculation','Number of avoided divergences',avoid_index)
 
 	#print('subsystem',sub_system_range)
-
-	print(datetime.now() - startTime,'End Fisher Calculation')
 
 	return [Fisher, particle_numL]

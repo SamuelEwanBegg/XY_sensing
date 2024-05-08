@@ -7,7 +7,7 @@ import HamBuilder as hb
 import ExactDiagScripts as ED
 import copy
 
-stem = '/Users/samuelbegg/Documents/Projects/Sensing/ed_results/'
+stem = '/Users/samuelbegg/Documents/Sensing/ed_results/'
 save = 'yes'  #'yes' or 'no'
 plot = 'yes'  #'yes' or 'no'
 
@@ -18,33 +18,34 @@ Sz = 0.5*np.asarray([[1.0,0],[0,-1.0]])
 
 ##############################################################################
 #Fisher information parameters
-shift = 0.00001
-tol = 10**(-7)
+shift = 10**(-6)
+tol = 10**(-8)
 subsystem = 2
 
 #############################################################################
 #Build Hamiltonian
 N = 4
 Jz = 0.0
-gamma = 0.4
+gamma = 1.0
 Jx = -1.0*(1 + gamma)
 Jy = -1.0*(1 - gamma)
 hx = 0.0 
 hy = 0.0
-phasepoints = 401 # points to sampling h0
-hzmat = - np.linspace(-2.5,2.5,phasepoints) #leading minus sign to make equivalent to free fermion code 
+phasepoints = 1 # points to sampling h0
+hzmat = - np.linspace(-2,-2,phasepoints) #leading minus sign to make equivalent to free fermion code 
 PbC = 1 #periodic boundary conditions [PBC = 1 or 0 (yes or no)]
                                                                             
 ###############################################################################
 
 Fisher = np.zeros(phasepoints)
 spinZ= np.zeros(phasepoints)
+spinZcheck= np.zeros(phasepoints)
 
 for ii in range(0, phasepoints):
 
     hz = copy.copy(hzmat[ii])
 
-    print(hz)
+    print(np.round(hz,3))
 
     if N == 2:
             
@@ -57,8 +58,9 @@ for ii in range(0, phasepoints):
     ###############################################################################
     #perform the diagonlization
 
-    w,v = np.linalg.eigh(H) 
+    w,v = scipy.linalg.eigh(H) 
 
+    #print(w)
     ################################################################################
 
     #reduced density matrix for Fisher information
@@ -68,9 +70,11 @@ for ii in range(0, phasepoints):
     NB = N - NA
     dimsB = 2**NB
     reduced_density = ED.red_den(dimsA,dimsB,densityMatrix/np.trace(densityMatrix)) 
-    red_den = reduced_density
+    red_den = copy.copy(reduced_density)
 
-    spinZ[ii] = np.trace(red_den @ np.kron(Sz,np.identity(2)))/np.trace(red_den)
+    spinZ[ii] = np.trace(np.dot(red_den , np.kron(Sz,np.identity(2))))/np.trace(red_den)
+
+    spinZcheck[ii] = np.trace(np.dot(red_den , np.kron(np.identity(2),Sz)))/np.trace(red_den)
 
     # Consider the shifted result
     hz = hz - shift
@@ -84,7 +88,11 @@ for ii in range(0, phasepoints):
     ###############################################################################
     #perform the diagonlization
 
-    w,v = np.linalg.eigh(H) 
+    w,v = scipy.linalg.eigh(H) 
+
+    if np.abs(w[0]-w[1]) < 10**(-10):
+
+        print('Degeneracy',w[0]-w[1])
 
     ################################################################################
 
@@ -95,16 +103,19 @@ for ii in range(0, phasepoints):
     NB = N - NA
     dimsB = 2**NB
     reduced_density = ED.red_den(dimsA,dimsB,densityMatrix/np.trace(densityMatrix)) 
-    red_denB = reduced_density
+    red_denB = copy.copy(reduced_density)
 
     Fisheradd = 0
     
-    Dred = (red_denB- red_den)/shift
+    Dred = (red_denB - red_den)/shift
 
     w, v = sp_linalg.eigsh(red_den)
     
     ignore = 0
     index = 0
+
+    print(w)
+    print(np.sum(w))
 
     for nn in range(0,np.size(w)):
         
@@ -129,8 +140,16 @@ if save == 'yes':
     np.save(stem + '/Fisher',Fisher)
     np.save(stem + '/hzmat',-hzmat)
     np.save(stem + '/mag',spinZ)
-  
-print(Fisher)
 
-
+if plot == 'yes':
+    plt.plot(-hzmat,Fisher)
+    plt.xlabel('h0')
+    plt.ylabel('F')
+    plt.show()
+        
+    plt.plot(-hzmat,spinZ)
+    plt.plot(-hzmat,spinZcheck,'--')
+    plt.xlabel('h0')
+    plt.ylabel('Sz')
+    plt.show()
 
