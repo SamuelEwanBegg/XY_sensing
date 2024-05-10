@@ -20,26 +20,26 @@ Sz = 0.5*np.asarray([[1.0,0],[0,-1.0]])
 #Fisher information parameters
 shift = 10**(-6)
 tol = 10**(-8)
-subsystem = 2
+subsystem = 4
 
 #############################################################################
 #Build Hamiltonian
-N = 4
+N = 6
 Jz = 0.0
-gamma = 1.0
+gamma = 0.1
 Jx = -1.0*(1 + gamma)
 Jy = -1.0*(1 - gamma)
 hx = 0.0 
 hy = 0.0
-phasepoints = 1 # points to sampling h0
-hzmat = - np.linspace(-2,-2,phasepoints) #leading minus sign to make equivalent to free fermion code 
+phasepoints = 51 # points to sampling h0
+hzmat = - np.linspace(-2,2,phasepoints) #leading minus sign to make equivalent to free fermion code 
 PbC = 1 #periodic boundary conditions [PBC = 1 or 0 (yes or no)]
                                                                             
 ###############################################################################
 
 Fisher = np.zeros(phasepoints)
 spinZ= np.zeros(phasepoints)
-spinZcheck= np.zeros(phasepoints)
+#spinZcheck= np.zeros(phasepoints)
 
 for ii in range(0, phasepoints):
 
@@ -72,9 +72,15 @@ for ii in range(0, phasepoints):
     reduced_density = ED.red_den(dimsA,dimsB,densityMatrix/np.trace(densityMatrix)) 
     red_den = copy.copy(reduced_density)
 
-    spinZ[ii] = np.trace(np.dot(red_den , np.kron(Sz,np.identity(2))))/np.trace(red_den)
+    if subsystem == 2:
 
-    spinZcheck[ii] = np.trace(np.dot(red_den , np.kron(np.identity(2),Sz)))/np.trace(red_den)
+        spinZ[ii] = np.trace(np.dot(red_den , np.kron(Sz,np.identity(2))))/np.trace(red_den)
+    
+    if subsystem == 4:
+         
+         spinZ[ii] = np.trace(np.dot(red_den , np.kron(np.kron(np.kron(Sz,np.identity(2)),np.identity(2)),np.identity(2))))/np.trace(red_den)
+
+    #spinZcheck[ii] = np.trace(np.dot(red_den , np.kron(np.identity(2),Sz)))/np.trace(red_den)
 
     # Consider the shifted result
     hz = hz - shift
@@ -88,7 +94,7 @@ for ii in range(0, phasepoints):
     ###############################################################################
     #perform the diagonlization
 
-    w,v = scipy.linalg.eigh(H) 
+    w,v = sp.linalg.eigh(H) 
 
     if np.abs(w[0]-w[1]) < 10**(-10):
 
@@ -109,12 +115,12 @@ for ii in range(0, phasepoints):
     
     Dred = (red_denB - red_den)/shift
 
-    w, v = sp_linalg.eigsh(red_den)
+    w, v = sp.linalg.eig(red_den)
     
     ignore = 0
     index = 0
 
-    print(w)
+    print(NA,dimsA,NB,dimsB,'reduced density matrix eigenvalues',w)
     print(np.sum(w))
 
     for nn in range(0,np.size(w)):
@@ -148,7 +154,7 @@ if plot == 'yes':
     plt.show()
         
     plt.plot(-hzmat,spinZ)
-    plt.plot(-hzmat,spinZcheck,'--')
+    #plt.plot(-hzmat,spinZcheck,'--')
     plt.xlabel('h0')
     plt.ylabel('Sz')
     plt.show()

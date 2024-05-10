@@ -14,7 +14,7 @@ Sy = np.asarray([[0,-1.0j],[1.0j,0]])
 Sz = np.asarray([[1.0,0],[0,-1.0]])   
 
 stem = '/Users/samuelbegg/'
-stem_save = stem + 'Documents/Projects/Sensing/matrix_results/' 
+stem_save = stem + 'Documents/Sensing/matrix_results/' 
 save = 'yes'
 plot = 'no'
 
@@ -28,7 +28,7 @@ N = 4
 ##############
 #Hamiltonian Parameters
 
-gamma = 0.1
+gamma = 1.0
 Jx = -1.0*(1 + gamma)
 Jy = -1.0*(1 - gamma)
 hz_amp = 1.5

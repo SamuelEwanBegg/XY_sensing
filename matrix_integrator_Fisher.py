@@ -14,7 +14,7 @@ Sy = np.asarray([[0,-1.0j],[1.0j,0]])
 Sz = np.asarray([[1.0,0],[0,-1.0]])   
 
 stem = '/Users/samuelbegg/'
-stem_save = stem + 'Documents/Projects/Sensing/matrix_results/' 
+stem_save = stem + 'Documents/Sensing/matrix_results/' 
 save = 'yes'
 plot = 'no'
 
@@ -31,7 +31,7 @@ subsystem = 2 #Evaluate Fisher information for subsystem of this size
 #Build Hamiltonian
 
 Jz = 0.0
-gamma = 0.1
+gamma = 1.0
 Jx = -1.0*(1 + gamma)
 Jy = -1.0*(1 - gamma)
 hx = 0.0
@@ -41,7 +41,7 @@ hz_period = 6.0/4.0
 h0_amp = 0.3
 hz = -h0_amp - hz_amp*np.sin(2*np.pi/hz_period*step*np.arange(0,tsteps))
 shift = 0.001
-tol = 10**(-5)
+tol = 10**(-6)
 hz_shift = hz - shift
 PbC = 1
 
@@ -135,7 +135,7 @@ for ii in range(0,np.size(Fisher)):
 	
     Dred = (reduced_densityB[ii] - reduced_density[ii])/shift
 
-    w, v = sp_linalg.eigsh(reduced_density[ii])
+    w, v = sp.linalg.eig(reduced_density[ii])
 	
     for nn in range(0,np.size(w)):
 		

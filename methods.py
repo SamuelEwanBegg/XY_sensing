@@ -759,11 +759,7 @@ def Fisher_Calc(phase, obs, Dag_obs, J, gamma, h0_in, shift, h1, times, dt, meas
 						Gamma[(2*ii+1)%(2*sub_system),(2*jj+1)%(2*sub_system)] = idmat[ii,jj] + 2*1j*np.imag(Corr_mat[ii,jj] - Dag_mat[ii,jj])
 
 
-				#Gamma = 0.5*copy.copy(Gamma) #I am using this since the above formula do not have 1.0/sqrt(2) in majorana definition.
-				
-				#Gamma = Gamma - np.diag(np.diag(Gamma))
-
-				Gamma = 0.5*(Gamma - np.transpose(np.conj(Gamma)))
+				Gamma = 0.5*(Gamma - np.transpose(Gamma))
 
 				if kk == 0:
 					
@@ -784,7 +780,6 @@ def Fisher_Calc(phase, obs, Dag_obs, J, gamma, h0_in, shift, h1, times, dt, meas
 				if kk == 4:
 
 					Gamma5[ss] = Gamma5[ss] + [Gamma]
-
 
 	#Initialize matrix
 	Fisher = np.zeros([np.size(sub_system_range),measure_times])
@@ -858,8 +853,8 @@ def Fisher_Calc(phase, obs, Dag_obs, J, gamma, h0_in, shift, h1, times, dt, meas
 				for ss in range(0,2*sub_system):
 
 					if np.abs(1 - w[rr]*w[ss]) > tol:
-
-						Fisher_time += 0.5*(np.conj(v[:,rr]) @ GammaD @ v[:,ss]) * (np.conj(v[:,ss]) @ GammaD @ v[:,rr]) / (1 - w[rr]*w[ss]) #(np.conj(v[:,rr]) @ GammaD @ v[:,ss]) * (np.conj(v[:,ss]) @ GammaD @ v[:,rr]) / (1 - w[rr]*w[ss])
+						
+						Fisher_time += 0.5*(np.conj(v[:,rr]) @ GammaD @ v[:,ss]) * (np.conj(v[:,ss]) @ GammaD @ v[:,rr]) / (1 - w[rr]*w[ss]) 
 
 					else:
 
@@ -870,7 +865,7 @@ def Fisher_Calc(phase, obs, Dag_obs, J, gamma, h0_in, shift, h1, times, dt, meas
 		print('Subsystem analaysis complete. ' + 'Number of avoided divergences (average per time) = ' + str(int(avoid_index/measure_times)))
 
 	print(datetime.now() - startTime,'End Fisher Calculation')
-
+	
 	return [Fisher, particle_numL ] 
 
 
@@ -1001,19 +996,24 @@ def Fisher_Groundstate(J, gamma, h0_in, h1, sites, sub_system_range, sub_system_
 
 		w,v = lin.eigh(Gamma) #eigenvalues w[aa] and eigenvectors v[:,aa]
 		
-		red  =  np.asarray([(1 + np.abs(w[0]))/2,(1 - np.abs(w[0]))/2])
+		# Calculate the reduced density matrix explicitely for debugging, all eigenvalues of the reduced density matrix can be printed for small system sizes.
+		red_calc = 'yes'
 
-		for oo in range(1,int(np.size(w)/2)):
-			
-			hold = np.asarray([(1 + np.abs(w[oo]))/2,(1 - np.abs(w[oo]))/2])
-			
-			red = np.kron(hold,red)
+		if red_calc == 'yes':
+
+			red  =  np.asarray([(1 + np.abs(w[0]))/2,(1 - np.abs(w[0]))/2])
+
+			for oo in range(1,int(np.size(w)/2)):
+				
+				hold = np.asarray([(1 + np.abs(w[oo]))/2,(1 - np.abs(w[oo]))/2])
+				
+				red = np.kron(hold,red)
+
+			print('sub system', sub_system, 'reduced density eigenvalues', -np.sort(-red))
+
+			print('sum eig reduced density',np.sum(red))
 
 		print(w)
-
-		print('sub system', sub_system, 'reduced density eigenvalues', red)
-		
-		print('sum eig',np.sum(red))
 
 		if -np.max(-w) < -1.000000001:
 		
@@ -1071,7 +1071,7 @@ def Fisher_Groundstate(J, gamma, h0_in, h1, sites, sub_system_range, sub_system_
 
 				else:
 					
-					Fisher_time += 0.5*(np.conj(v[:,rr]) @ GammaD @ v[:,yy]) * (np.conj(v[:,yy]) @ GammaD @ v[:,rr]) / (1 - -1)
+					Fisher_time += 0 #0.5*(np.conj(v[:,rr]) @ GammaD @ v[:,yy]) * (np.conj(v[:,yy]) @ GammaD @ v[:,rr]) / (1 - -1)
 					
 					avoid_var = avoid_var + 1
 
