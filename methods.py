@@ -94,19 +94,10 @@ def correlation_groundstate(sites, gamma, J , h0_in, h1_in, boundary_conditions)
 
 		fourier_def = 1
 
-	# elif boundary_conditions == 'ABC' and (sites%2)==1:
-
-	# 	fourier_def = 0
-
-	# elif boundary_conditions == 'PBC' and (sites%2)==0:
-
-	# 	fourier_def = 0
-
 	elif boundary_conditions == 'PBC':
 
 		fourier_def = 0
 
-	
 	if fourier_def == 0:
 
 		#for kk in range(0,sites):
@@ -146,73 +137,6 @@ def correlation_groundstate(sites, gamma, J , h0_in, h1_in, boundary_conditions)
 				Dag_obs[m,n] = np.sum(1.0/sites * np.exp(-1j*(n-m)*kval) * (1j) * 0.5 * np.sin(thetaK))
 
 				obs[m,n] = np.sum(1.0/sites * np.exp(-1j*(n-m)*kval) * (np.cos(thetaK/2.0))**2)
-	
-	return obs, Dag_obs
-
-#def correlation_groundstate_loops(sites, gamma, J , h0_in, h1_in, boundary_conditions):
-    
-	obs = np.zeros([sites,sites],dtype = complex) 
-
-	Dag_obs = np.zeros([sites,sites],dtype = complex) 
-
-	thetaK = np.zeros(sites)
-
-	if boundary_conditions == 'ABC' and (sites%2)==0:
-
-		fourier_def = 1
-
-	# elif boundary_conditions == 'ABC' and (sites%2)==1:
-
-	# 	fourier_def = 0
-
-	# elif boundary_conditions == 'PBC' and (sites%2)==0:
-
-	# 	fourier_def = 0
-
-	elif boundary_conditions == 'PBC' and (sites%2)==1:
-
-		fourier_def = 0
-
-	
-	if fourier_def == 0:
-
-		for kk in range(0,sites):
-				
-				kval = -np.pi + 2*kk*np.pi/sites
-				
-				thetaK[kk] = np.arctan2( J * gamma * np.sin(kval), J * np.cos(kval) + h0_in + h1_in)
-
-		for m in range(0,sites):
-			
-			for n in range(0,sites):
-
-				for kk in range(0,sites):
-
-					kval = -np.pi + 2*kk*np.pi/sites
-
-					Dag_obs[m,n] += 1.0/sites * np.exp(-1j*(n-m)*kval) * (1j) * 0.5 * np.sin(thetaK[kk])
-
-					obs[m,n] += 1.0/sites * np.exp(-1j*(n-m)*kval) * (np.cos(thetaK[kk]/2.0))**2
-					
-	if fourier_def == 1:
-
-		for kk in range(0,int(sites)):
-				
-				kval = -np.pi + (2*kk+1)*np.pi/sites #(2*(kk) + 1)*np.pi/sites
-
-				thetaK[kk] = np.arctan2( J * gamma * np.sin(kval), J * np.cos(kval) + h0_in + h1_in)
-
-		for m in range(0,sites):
-			
-			for n in range(0,sites):
-
-				for kk in range(0,int(sites)):
-
-					kval = -np.pi + (2*kk+1)*np.pi/sites #(2*(kk) + 1)*np.pi/sites
-
-					Dag_obs[m,n] += 1.0/sites * np.exp(-1j*(n-m)*kval) * (1j) * 0.5 * np.sin(thetaK[kk])
-
-					obs[m,n] += 1.0/sites * np.exp(-1j*(n-m)*kval) * (np.cos(thetaK[kk]/2.0))**2
 	
 	return obs, Dag_obs
 
@@ -277,7 +201,162 @@ def Nmatrix(sites, boundary_conditions):
 	return N
 
 
-def integrator_matrices(obs, Dag_obs, J, gamma, h0, h1, times, dt, measure_interval, sites, boundary_conditions, method):
+def initial_BdG(J, gamma, h0_in, h1_in, sites, boundary_conditions):
+
+	#Calculate the initial condition for the ground-state case
+
+	if boundary_conditions == 'PBC':
+
+		kvec = -np.pi + 2*np.arange(0,sites)*np.pi/sites
+
+	if boundary_conditions == 'ABC':
+
+		kvec = -np.pi + (2*np.arange(0,sites)+1)*np.pi/sites #(2*(kk) + 1)*np.pi/sites
+
+	state = []
+
+	for kk in range(0,sites):
+
+		thetaK = np.arctan2( J * gamma * np.sin(kvec[kk]), J * np.cos(kvec[kk]) + h0_in + h1_in[0])
+
+		u = np.cos(thetaK / 2.0)
+
+		v = 1j * np.sin(thetaK / 2.0)
+
+		state = state + [np.asarray([u , v])]
+
+	initial_state = copy.copy(state)
+
+	return initial_state
+
+
+
+def integrator_BdG(J, gamma, h0_in, h1_in, h1_in_midpoint, oneperiod_steps, dt, sites, boundary_conditions, initial_state, method):
+
+	if boundary_conditions == 'PBC':
+
+		kvec = -np.pi + 2*np.arange(0,sites)*np.pi/sites
+
+	if boundary_conditions == 'ABC':
+
+		kvec = -np.pi + (2*np.arange(0,sites)+1)*np.pi/sites 
+
+	state = copy.copy(initial_state)
+
+	for tt in range(0,oneperiod_steps):
+
+		for kk in range(0,sites):
+		
+			Hmat = np.asarray([[-(J*np.cos(kvec[kk]) + h0_in + h1_in[tt]), 1j * J * gamma * np.sin(kvec[kk])] , [ -1j * J * gamma * np.sin(kvec[kk]),  (J * np.cos(kvec[kk]) + h0_in + h1_in[tt])]])
+
+			Hmat_midpoint = np.asarray([[-(J*np.cos(kvec[kk]) + h0_in + h1_in_midpoint[tt]), 1j * J * gamma * np.sin(kvec[kk])] , [ -1j * J * gamma * np.sin(kvec[kk]),  (J * np.cos(kvec[kk]) + h0_in + h1_in_midpoint[tt])]])
+
+			Hmat_endpoint = np.asarray([[-(J*np.cos(kvec[kk]) + h0_in + h1_in[(tt+1)%oneperiod_steps]), 1j * J * gamma * np.sin(kvec[kk])] , [ -1j * J * gamma * np.sin(kvec[kk]),  (J * np.cos(kvec[kk]) + h0_in + h1_in[(tt+1)%oneperiod_steps])]])
+
+			if method == 'heun':
+
+				temp_dstate =  Hmat @ state[kk]
+
+				temp_state = state[kk] + -1j * dt * temp_dstate
+
+				dstate =  Hmat_endpoint @ temp_state
+			
+				state[kk] = state[kk] + -1j * dt * 0.5 * (temp_dstate + dstate)
+
+			if method == 'RK4':
+
+				k1 =  Hmat @ state[kk]
+
+				step_state = state[kk] + -1j * dt * k1 * 0.5
+
+				k2 = Hmat_midpoint @ step_state
+
+				step_state = state[kk] + -1j * dt * k2 * 0.5
+
+				k3 = Hmat_midpoint @ step_state
+
+				step_state = state[kk] + -1j * dt * k3
+
+				k4 = Hmat_endpoint @ step_state
+
+				state[kk] = state[kk] + -1j *  dt * 1.0 / 6.0 * (k1 + 2 * k2 + 2 * k3 + k4)
+
+	return state
+
+def floquet_eigsystem(state):
+	
+	sites = len(state)
+
+	valmat = []
+
+	vecmat = []
+
+	for kk in range(0,sites):
+		
+		Umatrix = [ [ state[kk][0] , - np.conj(state[kk][1]) ] , [ state[kk][1] , np.conj(state[kk][0]) ]]
+
+		#print('Iden' , np.dot(Umatrix,np.conjugate(np.transpose(Umatrix))))
+
+		val, vec = lin.eig( Umatrix )
+
+		valmat = valmat + [val]
+
+		vecmat = vecmat + [vec]
+
+	return valmat , vecmat
+		
+def floquet_evolution(J, gamma, h0_in, h1_in, h1_in_midpoint, final_time, oneperiod_steps, dt, sites, boundary_conditions, method, eval, evec, initial_state):
+
+	ov0 = np.zeros(sites, dtype = complex)
+
+	ov1 = np.zeros(sites, dtype = complex)
+
+	# Calculate overlaps of initial state
+
+	for kk in range(0,sites):
+
+		ov0[kk] = np.dot(np.conj(evec[kk][:,0]) , initial_state[kk])
+
+		ov1[kk] = np.dot(np.conj(evec[kk][:,1]) , initial_state[kk])
+
+	# Calculate the final state in [u_k, v_k] space
+
+	final_state = np.zeros((sites,2), dtype = complex)
+
+	for kk in range(0,sites):
+
+		final_state[kk,:] = (eval[kk][0])**(final_time) * ov0[kk]  * evec[kk][:,0]  + (eval[kk][1])**(final_time) * ov1[kk] * evec[kk][:,1]
+
+	# Return correlation matrices at this final time
+
+	obs = np.zeros([sites,sites],dtype = complex) 
+
+	Dag_obs = np.zeros([sites,sites],dtype = complex) 	
+	
+	if boundary_conditions == 'PBC':
+
+		kval = - np.pi + 2*np.arange(0,sites)*np.pi/sites
+
+	elif boundary_conditions == 'ABC':
+	
+		kval = - np.pi + (2*np.arange(0,sites)+1)*np.pi/sites
+
+	obs_kspace = (final_state[:,0])*np.conj(final_state[:,0])
+
+	Dag_obs_kspace = np.conj(final_state[:,0]) * final_state[:,1]
+
+	for m in range(0,sites):
+	
+		for n in range(0,sites):
+
+			Dag_obs[m,n] = np.sum(1.0/sites * np.exp(-1j*(n-m)*kval) * Dag_obs_kspace)
+
+			obs[m,n] =  np.sum(1.0/sites * np.exp(-1j*(n-m)*kval) * obs_kspace)
+
+	return  obs , Dag_obs, eval
+
+
+def integrator_matrices(obs, Dag_obs, J, gamma, h0_in, h1, h1_midpoint, times, dt, measure_interval, sites, boundary_conditions, method):
 
 	startTime = datetime.now()
 	 
@@ -297,7 +376,7 @@ def integrator_matrices(obs, Dag_obs, J, gamma, h0, h1, times, dt, measure_inter
 		Dag_dobs_mat = np.zeros([sites,sites],dtype = complex)
 		
 	#Initialize observables
-	corr_diag = np.zeros([sites,times],dtype = complex)
+	corr_diag = np.zeros([sites,int(times/measure_interval)],dtype = complex)
 
 	#Initialize output correlation matrices
 	Corr_mat_list = []
@@ -313,9 +392,9 @@ def integrator_matrices(obs, Dag_obs, J, gamma, h0, h1, times, dt, measure_inter
 	
 	for ii in range(0,times):
 
-		if (ii%1000) == 0:
+		# if (ii%1000) == 0:
 
-			print(ii)
+		# 	print(ii)
 
 		Ann_obs = copy.copy(np.conj(np.transpose(Dag_obs))) #Refer to EOM in notes for reasoning here. Have terms c^{dag}_m c^{dag}_n and c_m c_n, whereas conjugate transpose of first term is c_n cm, expect minus sign but gives wrong answer.
 		
@@ -326,7 +405,7 @@ def integrator_matrices(obs, Dag_obs, J, gamma, h0, h1, times, dt, measure_inter
 
 		dobs = -J/2*np.dot(M,obs) + J/2*np.dot(obs,np.transpose(M))  - J/2*gamma*np.dot(N,Ann_obs) +  J/2*gamma*np.dot(Dag_obs,np.transpose(N))
 
-		Dag_dobs = -J/2*np.dot(M,Dag_obs) + J/2*np.conj(np.dot(Ann_obs,np.transpose(M))) - J/2*gamma*np.dot(obs,np.transpose(N)) + J/2*np.conj(gamma*np.dot(N,obs)) - J/2*gamma*N - 2*(h0 + h1[ii])*Dag_obs
+		Dag_dobs = -J/2*np.dot(M,Dag_obs) + J/2*np.conj(np.dot(Ann_obs,np.transpose(M))) - J/2*gamma*np.dot(obs,np.transpose(N)) + J/2*np.conj(gamma*np.dot(N,obs)) - J/2*gamma*N - 2*(h0_in + h1[ii])*Dag_obs
 		
 		#save matrix elements for Heun and RK4 schemes
 		dobs_predmat = copy.copy(dobs)
@@ -345,7 +424,7 @@ def integrator_matrices(obs, Dag_obs, J, gamma, h0, h1, times, dt, measure_inter
 			
 			dobs = -J/2*np.dot(M,obs) + J/2*np.dot(obs,np.transpose(M))  - J/2*gamma*np.dot(N,Ann_obs) +  J/2*gamma*np.dot(Dag_obs,np.transpose(N))
 
-			Dag_dobs = -J/2*np.dot(M,Dag_obs) + J/2*np.conj(np.dot(Ann_obs,np.transpose(M))) - J/2*gamma*np.dot(obs,np.transpose(N)) + J/2*np.conj(gamma*np.dot(N,obs)) - J/2*gamma*N - 2*(h0 + h1[ii])*Dag_obs
+			Dag_dobs = -J/2*np.dot(M,Dag_obs) + J/2*np.conj(np.dot(Ann_obs,np.transpose(M))) - J/2*gamma*np.dot(obs,np.transpose(N)) + J/2*np.conj(gamma*np.dot(N,obs)) - J/2*gamma*N - 2*(h0_in + h1[ii+1])*Dag_obs
 
 			dobs_mat  = copy.copy(dobs)
 					
@@ -373,7 +452,7 @@ def integrator_matrices(obs, Dag_obs, J, gamma, h0, h1, times, dt, measure_inter
 
 			dobs_mat = -J/2*np.dot(M,obs) + J/2*np.dot(obs,np.transpose(M))  - J/2*gamma*np.dot(N,Ann_obs) +  J/2*gamma*np.dot(Dag_obs,np.transpose(N))
 
-			Dag_dobs_mat = -J/2*np.dot(M,Dag_obs) + J/2*np.conj(np.dot(Ann_obs,np.transpose(M))) - J/2*gamma*np.dot(obs,np.transpose(N)) + J/2*np.conj(gamma*np.dot(N,obs)) - J/2*gamma*N - 2*(h0 + h1[ii])*Dag_obs
+			Dag_dobs_mat = -J/2*np.dot(M,Dag_obs) + J/2*np.conj(np.dot(Ann_obs,np.transpose(M))) - J/2*gamma*np.dot(obs,np.transpose(N)) + J/2*np.conj(gamma*np.dot(N,obs)) - J/2*gamma*N - 2*(h0_in + h1_midpoint[ii])*Dag_obs
 			
 			######### 
 			#Define k2 and input for k3
@@ -391,7 +470,7 @@ def integrator_matrices(obs, Dag_obs, J, gamma, h0, h1, times, dt, measure_inter
 
 			dobs_mat = -J/2*np.dot(M,obs) + J/2*np.dot(obs,np.transpose(M))  - J/2*gamma*np.dot(N,Ann_obs) +  J/2*gamma*np.dot(Dag_obs,np.transpose(N))
 
-			Dag_dobs_mat = -J/2*np.dot(M,Dag_obs) + J/2*np.conj(np.dot(Ann_obs,np.transpose(M))) - J/2*gamma*np.dot(obs,np.transpose(N)) + J/2*np.conj(gamma*np.dot(N,obs)) - J/2*gamma*N - 2*(h0 + h1[ii])*Dag_obs
+			Dag_dobs_mat = -J/2*np.dot(M,Dag_obs) + J/2*np.conj(np.dot(Ann_obs,np.transpose(M))) - J/2*gamma*np.dot(obs,np.transpose(N)) + J/2*np.conj(gamma*np.dot(N,obs)) - J/2*gamma*N - 2*(h0_in + h1_midpoint[ii])*Dag_obs
 
 			######### 
 			#Define k3 and input for k4	
@@ -409,14 +488,14 @@ def integrator_matrices(obs, Dag_obs, J, gamma, h0, h1, times, dt, measure_inter
 			
 			dobs_mat = -J/2*np.dot(M,obs) + J/2*np.dot(obs,np.transpose(M))  - J/2*gamma*np.dot(N,Ann_obs) +  J/2*gamma*np.dot(Dag_obs,np.transpose(N))
 
-			Dag_dobs_mat = -J/2*np.dot(M,Dag_obs) + J/2*np.conj(np.dot(Ann_obs,np.transpose(M))) - J/2*gamma*np.dot(obs,np.transpose(N)) + J/2*np.conj(gamma*np.dot(N,obs)) - J/2*gamma*N - 2*(h0 + h1[ii])*Dag_obs	
+			Dag_dobs_mat = -J/2*np.dot(M,Dag_obs) + J/2*np.conj(np.dot(Ann_obs,np.transpose(M))) - J/2*gamma*np.dot(obs,np.transpose(N)) + J/2*np.conj(gamma*np.dot(N,obs)) - J/2*gamma*N - 2*(h0_in + h1[ii+1])*Dag_obs	
 
 			######### 
 			#Define k4
 			
-			k4 = 1j*dobs_mat
+			k4 = copy.copy(1j*dobs_mat)
 
-			Dag_k4 = 1j*Dag_dobs_mat
+			Dag_k4 = copy.copy(1j*Dag_dobs_mat)
 
 			#Evaluate the final RK4 expression
 
@@ -442,242 +521,82 @@ def integrator_matrices(obs, Dag_obs, J, gamma, h0, h1, times, dt, measure_inter
 	return Corr_mat_list, Dag_mat_list, corr_diag
 
 
-#def integrator(obs, Dag_obs, J, gamma, h0, h1, times, dt, measure_interval, sites, boundary_conditions, method):
+def fermion_to_Majorana(Corr_mat, Dag_mat, sub_system):
 
-	print("Only works for PBC fermions. Replaced by Integrator Matrices")
+	idmat = np.identity(sub_system, dtype = complex)
 
-	startTime = datetime.now()
+	Gamma = np.zeros([2*sub_system, 2*sub_system],dtype = complex)
 
-	#Initialize integration variables
-	dobs_predmat = np.zeros([sites,sites],dtype = complex)
-	Dag_dobs_predmat = np.zeros([sites,sites],dtype = complex)
+	for ii in range(0,sub_system):
 
-	if method == 'heun' or 'RK4':
-		dobs_mat = np.zeros([sites,sites],dtype = complex)
-		Dag_dobs_mat = np.zeros([sites,sites],dtype = complex)
-		
-	idmat = 1.0*np.identity(sites,dtype = complex)
+		for jj in range(0,sub_system):
 
-	#Initialize observables
-	corr_diag = np.zeros([sites,times],dtype = complex)
+			Gamma[(2*ii),(2*jj)] = idmat[ii,jj] + 2*1j*np.imag(Corr_mat[ii,jj] + Dag_mat[ii,jj])
 
-	#Initialize output correlation matrices
-	Corr_mat_list = []
-	Dag_mat_list = []
+			Gamma[(2*ii),(2*jj+1)%(2*sub_system)] = 1j*idmat[ii,jj] - 2*1j*np.real(Corr_mat[ii,jj] - Dag_mat[ii,jj])
 
-	kk = 0
-	for ii in range(0,times):
+			Gamma[(2*ii+1)%(2*sub_system),(2*jj)] = -1j*idmat[ii,jj] + 2*1j*np.real(Corr_mat[ii,jj] + Dag_mat[ii,jj])
 
-		if (ii%1000) == 0:
+			Gamma[(2*ii+1)%(2*sub_system),(2*jj+1)%(2*sub_system)] = idmat[ii,jj] + 2*1j*np.imag(Corr_mat[ii,jj] - Dag_mat[ii,jj])
 
-			print(ii)
+	Gamma = 0.5*(Gamma - np.transpose(Gamma))
 
-		Ann_obs = copy.copy(np.conj(np.transpose(Dag_obs))) #Refer to EOM in notes for reasoning here. Have terms c^{dag}_m c^{dag}_n and c_m c_n, whereas conjugate transpose of first term is c_n cm, expect minus sign but gives wrong answer.
-		
-		#Retain0.5* current obs value for Heun scheme
-		orig_obs = copy.deepcopy(obs)
-		Dag_orig_obs = copy.deepcopy(Dag_obs)
+	return Gamma
 
-		#Prediction_step
-		for m in range(0,sites):
+def Fisher_from_Gamma(Gamma, Gamma_pert, shift, tol, sub_system):
 
-			for n in range(0,sites):
-				###c^dag_m c_n equation
+	#Fisher information from Gamma matrix using 2nd order derivative approximation
 
-				#J contribution
-				dobs = J/2*(obs[m%sites,(n-1)%sites] + obs[m%sites,(n+1)%sites] - obs[(m+1)%sites,n%sites] - obs[(m-1)%sites,n%sites])
-
-				#gamma contribution
-				dobs += gamma*J/2*(Dag_obs[m%sites,(n+1)%sites] - Dag_obs[m%sites,(n-1)%sites] - Ann_obs[(m+1)%sites,n%sites] +  Ann_obs[(m-1)%sites,n%sites])
-			
-				###c^dag_m c^dag_n equation
-				
-				#J contribution
-				Dag_dobs = J/2*(-Dag_obs[(m-1)%sites,(n)%sites] + Dag_obs[(n-1)%sites,m%sites]   - Dag_obs[(m+1)%sites,n%sites] + Dag_obs[(n+1)%sites,m%sites])
-
-				#Gamma contribution
-				Dag_dobs += -gamma*J/2*(-idmat[(m-1)%sites,n%sites] + idmat[(m+1)%sites,n%sites] +  obs[(n)%sites,(m-1)%sites] - obs[n%sites,(m+1)%sites] - obs[(m)%sites,(n-1)%sites] + obs[(m)%sites,(n+1)%sites])
-				
-				#h0 and h_1 contribution
-				Dag_dobs += (-2*(h0 + h1[ii])*Dag_obs[m%sites,n%sites])
-
-				###save matrix elements
-				dobs_predmat[m,n]  = copy.copy(dobs)
-
-				Dag_dobs_predmat[m,n]  = copy.copy(Dag_dobs)
-
-
-		obs = obs + 1j*dobs_predmat*dt	
-
-		Dag_obs = Dag_obs + 1j*Dag_dobs_predmat*dt		
-
-		#Correction Step
-
-		if method == 'heun':
-
-			Ann_obs = copy.copy(np.conj(np.transpose(Dag_obs)))
-			
-			for m in range(0,sites):
-
-				for n in range(0,sites):
-
-					dobs = ( (J/2)*obs[m%sites,(n-1)%sites] + (J/2)*obs[m%sites,(n+1)%sites] + (-J/2)*obs[(m+1)%sites,n%sites] +  (-J/2)*obs[(m-1)%sites,n%sites] )
-					
-					dobs += gamma*J/2*(Dag_obs[m%sites,(n+1)%sites] - Dag_obs[m%sites,(n-1)%sites] - Ann_obs[(m+1)%sites,n%sites] +  Ann_obs[(m-1)%sites,n%sites])
-
-					Dag_dobs = (-J/2*Dag_obs[(m-1)%sites,(n)%sites] + J/2*Dag_obs[(n-1)%sites,m%sites]   - J/2*Dag_obs[(m+1)%sites,n%sites] + J/2*Dag_obs[(n+1)%sites,m%sites])
-					
-					Dag_dobs += (-gamma*(-J/2*idmat[(m-1)%sites,n%sites] + J/2*idmat[(m+1)%sites,n%sites] +  J/2*obs[(n)%sites,(m-1)%sites] - J/2*obs[n%sites,(m+1)%sites]   - J/2*obs[(m)%sites,(n-1)%sites] + J/2*obs[(m)%sites,(n+1)%sites]))
-					
-					Dag_dobs += (-2*(h0 + h1[ii])*Dag_obs[m%sites,n%sites])
-
-					dobs_mat[m,n]  = copy.copy(dobs)
-					
-					Dag_dobs_mat[m,n]  = copy.copy(Dag_dobs)		
-
-			obs = orig_obs + 1j*dt*0.5*(dobs_mat + dobs_predmat)
-
-			Dag_obs = Dag_orig_obs + 1j*dt*0.5*(Dag_dobs_mat + Dag_dobs_predmat)
-
-		if method == 'RK4':
-			######### 
-			#Define k1 and input for k2
-
-			k1 =  copy.copy(1j*dobs_predmat)
-
-			Dag_k1 =  copy.copy(1j*Dag_dobs_predmat)
-
-			obs = orig_obs + 0.5*k1*dt #input for k2 (like a midpoint)
-
-			Dag_obs = Dag_orig_obs + 0.5*Dag_k1*dt #input for Dag_k2 (like a midpoint)
-
-			######### 
-			Ann_obs = copy.copy(np.conj(np.transpose(Dag_obs)))
-			
-			for m in range(0,sites):
-
-				for n in range(0,sites):
-
-					dobs = ( (J/2)*obs[m%sites,(n-1)%sites] + (J/2)*obs[m%sites,(n+1)%sites] + (-J/2)*obs[(m+1)%sites,n%sites] +  (-J/2)*obs[(m-1)%sites,n%sites] )
-
-					dobs += gamma*J/2*(Dag_obs[m%sites,(n+1)%sites] - Dag_obs[m%sites,(n-1)%sites] - Ann_obs[(m+1)%sites,n%sites] +  Ann_obs[(m-1)%sites,n%sites])
-
-					Dag_dobs = (-J/2*Dag_obs[(m-1)%sites,(n)%sites] + J/2*Dag_obs[(n-1)%sites,m%sites]   - J/2*Dag_obs[(m+1)%sites,n%sites] + J/2*Dag_obs[(n+1)%sites,m%sites])
-					
-					Dag_dobs += (-gamma*(-J/2*idmat[(m-1)%sites,n%sites] + J/2*idmat[(m+1)%sites,n%sites] +  J/2*obs[(n)%sites,(m-1)%sites] - J/2*obs[n%sites,(m+1)%sites]   - J/2*obs[(m)%sites,(n-1)%sites] + J/2*obs[(m)%sites,(n+1)%sites]))
-					
-					Dag_dobs += (-2*(h0 + h1[ii])*Dag_obs[m%sites,n%sites])
-
-					dobs_mat[m,n]  = copy.copy(dobs)
-					
-					Dag_dobs_mat[m,n]  = copy.copy(Dag_dobs)		
-			
-			######### 
-			#Define k2 and input for k3
-							
-			k2 =  copy.copy(1j*dobs_mat)
-
-			Dag_k2 =  copy.copy(1j*Dag_dobs_mat)
-
-			obs = orig_obs + 0.5*k2*dt #input for k3 (like a midpoint)
-
-			Dag_obs = Dag_orig_obs + 0.5*Dag_k2*dt #input for Dag_k3 (like a midpoint)
-
-			######### 
-			Ann_obs = copy.copy(np.conj(np.transpose(Dag_obs)))
-			
-			for m in range(0,sites):
-
-				for n in range(0,sites):
-
-					dobs = ( (J/2)*obs[m%sites,(n-1)%sites] + (J/2)*obs[m%sites,(n+1)%sites] + (-J/2)*obs[(m+1)%sites,n%sites] +  (-J/2)*obs[(m-1)%sites,n%sites] )
-					
-					dobs += gamma*J/2*(Dag_obs[m%sites,(n+1)%sites] - Dag_obs[m%sites,(n-1)%sites] - Ann_obs[(m+1)%sites,n%sites] +  Ann_obs[(m-1)%sites,n%sites])
-
-					Dag_dobs = (-J/2*Dag_obs[(m-1)%sites,(n)%sites] + J/2*Dag_obs[(n-1)%sites,m%sites]   - J/2*Dag_obs[(m+1)%sites,n%sites] + J/2*Dag_obs[(n+1)%sites,m%sites])
-					
-					Dag_dobs += (-gamma*(-J/2*idmat[(m-1)%sites,n%sites] + J/2*idmat[(m+1)%sites,n%sites] +  J/2*obs[(n)%sites,(m-1)%sites] - J/2*obs[n%sites,(m+1)%sites]   - J/2*obs[(m)%sites,(n-1)%sites] + J/2*obs[(m)%sites,(n+1)%sites]))
-					
-					Dag_dobs += (-2*(h0 + h1[ii])*Dag_obs[m%sites,n%sites])
-
-					dobs_mat[m,n]  = copy.copy(dobs)
-					
-					Dag_dobs_mat[m,n]  = copy.copy(Dag_dobs)		
-
-			######### 
-			#Define k3 and input for k4	
-					
-			k3 =  copy.copy(1j*dobs_mat)
-
-			Dag_k3 =  copy.copy(1j*Dag_dobs_mat)
-
-			obs = orig_obs + k3*dt #input for k4
-
-			Dag_obs = Dag_orig_obs + Dag_k3*dt #input for Dag_k4
-
-			######### 
-			Ann_obs = copy.copy(np.conj(np.transpose(Dag_obs)))
-			
-			for m in range(0,sites):
-
-				for n in range(0,sites):
-
-					dobs = ( (J/2)*obs[m%sites,(n-1)%sites] + (J/2)*obs[m%sites,(n+1)%sites] + (-J/2)*obs[(m+1)%sites,n%sites] +  (-J/2)*obs[(m-1)%sites,n%sites] )
-					
-					dobs += gamma*J/2*(Dag_obs[m%sites,(n+1)%sites] - Dag_obs[m%sites,(n-1)%sites] - Ann_obs[(m+1)%sites,n%sites] +  Ann_obs[(m-1)%sites,n%sites])
-
-					Dag_dobs = (-J/2*Dag_obs[(m-1)%sites,(n)%sites] + J/2*Dag_obs[(n-1)%sites,m%sites]   - J/2*Dag_obs[(m+1)%sites,n%sites] + J/2*Dag_obs[(n+1)%sites,m%sites])
-					
-					Dag_dobs += (-gamma*(-J/2*idmat[(m-1)%sites,n%sites] + J/2*idmat[(m+1)%sites,n%sites] +  J/2*obs[(n)%sites,(m-1)%sites] - J/2*obs[n%sites,(m+1)%sites]   - J/2*obs[(m)%sites,(n-1)%sites] + J/2*obs[(m)%sites,(n+1)%sites]))
-					
-					Dag_dobs += (-2*(h0 + h1[ii])*Dag_obs[m%sites,n%sites])
-
-					dobs_mat[m,n]  = copy.copy(dobs)
-					
-					Dag_dobs_mat[m,n]  = copy.copy(Dag_dobs)	
-
-			######### 
-			#Define k4
-			
-			k4 = 1j*dobs_mat
-
-			Dag_k4 = 1j*Dag_dobs_mat
-
-			#Evaluate the final RK4 expression
-
-			obs = orig_obs + dt/6.0*(k1 + 2*k2 + 2*k3 + k4)
-
-			Dag_obs = Dag_orig_obs + dt/6.0*(Dag_k1 + 2*Dag_k2 + 2*Dag_k3 + Dag_k4)
-
-
-		if (ii+1) < int(times)+1:
-
-			if (ii+1)%measure_interval == 0:
+	avoid_index = 0
 	
-				Corr_mat_list = Corr_mat_list + [obs]
+	#calculate eigenvectors of Gamma
 
-				Dag_mat_list = Dag_mat_list + [Dag_obs]
+	w , v = lin.eigh(Gamma) #eigenvalues w[aa] and eigenvectors v[:,aa]
 
-				for mmm in range(0,sites):		
-					
-					corr_diag[mmm,kk] = copy.copy(obs[mmm,mmm])
+	if -np.max(-w) < -1.0000000001:
+	
+		print('Error test: minimum eigenvalue',-np.max(-w)) #if negative this indicates error
+	
+	if np.max(w) > 1.00000000001:
 
-				kk = kk + 1
+		print('max eigenvalue',np.max(w)) #if > 1 this indicates error
+	
+	Hermitian_check = np.round(Gamma,3) - np.conj(np.transpose(np.round(Gamma,3)))
 
-	print(datetime.now() - startTime,'End Simulation')
+	Hermitian_check[np.abs(Hermitian_check)<10**(-15)] =0
+	
+	if np.allclose(Hermitian_check,np.zeros([2*sub_system,2*sub_system],dtype=complex)) == False:
+		
+		print('Hermitian Fail')
 
-	return Corr_mat_list, Dag_mat_list, corr_diag
+	GammaD = (Gamma_pert  - Gamma) / shift
+
+	Fisher_time = 0
+
+	for rr in range(0,2*sub_system):
+		
+		for ss in range(0,2*sub_system):
+
+			if np.abs(1 - w[rr]*w[ss]) > tol:
+				
+				Fisher_time += 0.5*(np.conj(v[:,rr]) @ GammaD @ v[:,ss]) * (np.conj(v[:,ss]) @ GammaD @ v[:,rr]) / (1 - w[rr]*w[ss]) 
+
+			else:
+
+				avoid_index = avoid_index + 1
+
+	print('avoid singularity index', avoid_index)
+
+	Fisher = Fisher_time  
+	
+	return Fisher
 
 
-def Fisher_Calc(phase, obs, Dag_obs, J, gamma, h0_in, shift, h1, times, dt, measure_interval, sites, sub_system_range, tol, derivative_estimator, integration_type, method, initial_state, boundary_conditions):
+def Fisher_Calc(phase, obs, Dag_obs, J, gamma, h0_in, shift, h1, h1_midpoint, times, dt, measure_interval, sites, sub_system_range, tol, derivative_estimator, integration_type, method, initial_state, boundary_conditions):
 
 	idmat = 1.0*np.identity(sites,dtype = complex)
 
 	print(phase, 'h0 value = ', h0_in)
-
-	if initial_state == 'ground_state':
-		
-		obs, Dag_obs = correlation_groundstate(sites, gamma, J, h0_in, h1[0], boundary_conditions)
 
 	if derivative_estimator == 'order4':
 		loop = 5
@@ -697,27 +616,27 @@ def Fisher_Calc(phase, obs, Dag_obs, J, gamma, h0_in, shift, h1, times, dt, meas
 
 		if derivative_estimator == 'order2':
 
-			if integration_type == 'loops':
-
-				Corr_mat_list, Dag_mat_list, corr_diag = integrator(obs, Dag_obs, J, gamma, h0_in + shift*kk, h1, times, dt, measure_interval, sites, boundary_conditions, method)
+			if initial_state == 'ground_state':
+				
+				obs, Dag_obs = correlation_groundstate(sites, gamma, J, h0_in + shift*kk, h1[0], boundary_conditions)
 
 			if integration_type == 'matrices':
 
-				Corr_mat_list, Dag_mat_list, corr_diag = integrator_matrices(obs, Dag_obs, J, gamma, h0_in + shift*kk, h1, times, dt, measure_interval, sites, boundary_conditions, method)
+				Corr_mat_list, Dag_mat_list, corr_diag = integrator_matrices(obs, Dag_obs, J, gamma, h0_in + shift*kk, h1, h1_midpoint, times, dt, measure_interval, sites, boundary_conditions, method)
 
 			if kk == 0:
 
 				particle_numL = copy.copy(corr_diag)
 
 		if derivative_estimator == 'order4':
+
+			if initial_state == 'ground_state':
 				
-			if integration_type == 'loops':	
-			
-				Corr_mat_list, Dag_mat_list, corr_diag = integrator(obs, Dag_obs, J, gamma, h0_in + shift*kk, h1, times, dt, measure_interval, sites, boundary_conditions, method)
+				obs, Dag_obs = correlation_groundstate(sites, gamma, J, h0_in + shift*kk, h1[0], boundary_conditions)
 
 			if integration_type == 'matrices':
 
-				Corr_mat_list, Dag_mat_list, corr_diag = integrator_matrices(obs, Dag_obs, J, gamma, h0_in + shift*kk, h1, times, dt, measure_interval, sites, boundary_conditions, method)
+				Corr_mat_list, Dag_mat_list, corr_diag = integrator_matrices(obs, Dag_obs, J, gamma, h0_in + shift*kk, h1, h1_midpoint, times, dt, measure_interval, sites, boundary_conditions, method)
 		
 			if kk == 2:
 
@@ -742,13 +661,6 @@ def Fisher_Calc(phase, obs, Dag_obs, J, gamma, h0_in, shift, h1, times, dt, meas
 					for jj in range(0,sub_system):
 
 						# #Note: python convention of first index being 0 means that fields all shifted by one compared to as written in notes.
-						# Gamma[(2*ii),(2*jj)] = idmat[ii,jj] + 2*1j*np.imag(Corr_mat[ii,jj] + Dag_mat[ii,jj])
-
-						# Gamma[(2*ii),(2*jj+1)%(2*sub_system)] = 1j*idmat[ii,jj] - 2*1j*np.real(Corr_mat[ii,jj] - Dag_mat[ii,jj])
-			
-						# Gamma[(2*ii+1)%(2*sub_system),(2*jj)] = -1j*idmat[ii,jj] + 2*1j*np.real(Corr_mat[ii,jj] + Dag_mat[ii,jj])
-
-						# Gamma[(2*ii+1)%(2*sub_system),(2*jj+1)%(2*sub_system)] = idmat[ii,jj] + 2*1j*np.imag(Corr_mat[ii,jj] - Dag_mat[ii,jj])
 
 						Gamma[(2*ii),(2*jj)] = idmat[ii,jj] + 2*1j*np.imag(Corr_mat[ii,jj] + Dag_mat[ii,jj])
 
@@ -781,6 +693,7 @@ def Fisher_Calc(phase, obs, Dag_obs, J, gamma, h0_in, shift, h1, times, dt, meas
 
 					Gamma5[ss] = Gamma5[ss] + [Gamma]
 
+	
 	#Initialize matrix
 	Fisher = np.zeros([np.size(sub_system_range),measure_times])
 
@@ -832,8 +745,8 @@ def Fisher_Calc(phase, obs, Dag_obs, J, gamma, h0_in, shift, h1, times, dt, meas
 
 				Gamma2_t = copy.copy(Gamma2[zzz][ttt])
 
-				GammaD = (Gamma2_t - Gamma1_t)/shift 
-
+				GammaD = (Gamma2_t - Gamma1_t) / shift 
+			
 			elif derivative_estimator == 'order4':
 				
 				Gamma1_t = copy.copy(Gamma1[zzz][ttt])
@@ -844,7 +757,7 @@ def Fisher_Calc(phase, obs, Dag_obs, J, gamma, h0_in, shift, h1, times, dt, meas
 				
 				Gamma5_t = copy.copy(Gamma5[zzz][ttt])
 
-				GammaD = (Gamma1_t  - 8*Gamma2_t + 8*Gamma4_t - Gamma5_t)/(12*shift)
+				GammaD = (Gamma1_t  - 8*Gamma2_t + 8*Gamma4_t - Gamma5_t) / (12*shift)
 
 			Fisher_time = 0
 
@@ -997,7 +910,7 @@ def Fisher_Groundstate(J, gamma, h0_in, h1, sites, sub_system_range, sub_system_
 		w,v = lin.eigh(Gamma) #eigenvalues w[aa] and eigenvectors v[:,aa]
 		
 		# Calculate the reduced density matrix explicitely for debugging, all eigenvalues of the reduced density matrix can be printed for small system sizes.
-		red_calc = 'yes'
+		red_calc = 'no'
 
 		if red_calc == 'yes':
 
@@ -1084,3 +997,20 @@ def Fisher_Groundstate(J, gamma, h0_in, h1, sites, sub_system_range, sub_system_
 	#print('subsystem',sub_system_range)
 
 	return [Fisher, particle_numL]
+
+# def floquet_spectrum(obs, Dag_obs, J, gamma, h0_in, h1, times, dt, sites, integration_type, method, initial_state, boundary_conditions):
+
+# 	if initial_state == 'ground_state':
+		
+# 		obs, Dag_obs = correlation_groundstate(sites, gamma, J, h0_in, h1[0], boundary_conditions)
+
+# 	if integration_type == 'matrices':
+
+# 			Uk_matrix_list = integrator_BdG(obs, Dag_obs, J, gamma, h0_in, h1, times, dt, 1, sites, boundary_conditions, method)
+
+# 	#Calculate the spectrum of the Uk matrices.
+
+
+
+
+# 	return floq_eigval, floq_eigvec
