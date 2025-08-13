@@ -4,7 +4,22 @@ import copy
 import scipy.linalg as lin
 from scipy.interpolate import interp1d
 from scipy.integrate import solve_ivp
+import numpy.random as random
 
+def random_state(sites):
+	
+	rand_state = []	
+
+	for cc in range(0,sites):
+
+		if random.rand() > 0.5:
+			
+			rand_state = rand_state + [np.asarray([1,0])] #basis state is up (occupied state), initial down-state used in method
+		
+		else:
+			rand_state = rand_state + [np.asarray([0,1])] #basis state is down (unoccupied state), initial up-state used in method
+
+	return rand_state
 
 def initialize_state(sites, gamma, J, h0_in, h1_in, boundary_conditions, initial_state):
 	#Build nearest neighbourn interaction Matrix
@@ -1467,3 +1482,63 @@ def Fisher_Groundstate(J, gamma, h0_in, h1, sites, sub_system_range, sub_system_
 
 
 # 	return floq_eigval, floq_eigvec
+
+
+def floquet_evolution_eff_vectorized(final_time, sites, boundary_conditions, evals, evecs, initial_states):
+    """
+	# pp can be 1, but for some specific problems in sensing may not be (i.e. Fisher information calc.).
+    evals: shape (pp, sites, 2) complex eigenvalues for each pp, k, band
+    evecs: shape (pp, sites, 2, 2) eigenvectors for each pp, k, band, component
+    initial_states: shape (pp, sites, 2) initial BdG spinors
+    """
+
+    # Calculate overlaps ov0 and ov1 for all pp, sites at once:
+    # ov0[pp, k] = <evecs[pp,k,:,0] | initial_states[pp,k,:]>
+    ov0 = np.sum(np.conj(evecs[..., :, 0]) * initial_states, axis=-1)  # shape (pp, sites)
+    ov1 = np.sum(np.conj(evecs[..., :, 1]) * initial_states, axis=-1)  # shape (pp, sites)
+
+    # Raise eigenvalues to final_time power:
+    evals_t0 = evals[..., 0] ** final_time  # shape (pp, sites)
+    evals_t1 = evals[..., 1] ** final_time  # shape (pp, sites)
+
+    # Construct final_state for all pp,k:
+    # final_state[pp, k, :] = evals_t0 * ov0 * evec[:, :, 0] + evals_t1 * ov1 * evec[:, :, 1]
+    final_state = (
+        (evals_t0[..., np.newaxis] * ov0[..., np.newaxis]) * evecs[..., :, 0]
+        + (evals_t1[..., np.newaxis] * ov1[..., np.newaxis]) * evecs[..., :, 1]
+    )  # shape (pp, sites, 2)
+
+    # Determine k vector:
+    if boundary_conditions == 'PBC':
+        kval = -np.pi + 2 * np.arange(sites) * np.pi / sites
+    elif boundary_conditions == 'ABC':
+        kval = -np.pi + (2 * np.arange(sites) + 1) * np.pi / sites
+    else:
+        raise ValueError("Unsupported boundary condition")
+
+    # Compute k-space observables:
+    obs_kspace = np.abs(final_state[..., 0]) ** 2   # shape (pp, sites)
+    Dag_obs_kspace = np.conj(final_state[..., 0]) * final_state[..., 1]  # shape (pp, sites)
+
+    # Fourier transform obs and Dag_obs back to real space for each pp:
+    # Use broadcasting and einsum or matrix multiplication for speed.
+
+    # Phase factor: shape (sites, sites)
+    m = np.arange(sites)[:, None, None]
+    n = np.arange(sites)[None, :, None]
+    k = kval[None, None, :]
+    phase = np.exp(-1j * (m - n) * k) / sites
+    # To handle shape, do for each pp:
+    # obs[pp,m,n] = sum_k phase[m,n,k] * obs_kspace[pp,k]
+    # Similarly for Dag_obs
+
+    # But phase shape is (sites, sites, sites), which can be large. So use einsum smartly:
+
+    # Reshape phase for einsum: (m,n,k)
+    # obs_kspace: (pp, k)
+    # output obs: (pp, m, n)
+    obs = np.einsum('mnk,pk->pmn', phase, obs_kspace)
+    Dag_obs = np.einsum('mnk,pk->pmn', phase, Dag_obs_kspace)
+
+    # Return obs, Dag_obs, and evals
+    return obs, Dag_obs, evals
