@@ -6,6 +6,17 @@ from scipy.interpolate import interp1d
 from scipy.integrate import solve_ivp
 import numpy.random as random
 
+
+def BdG_vacuum(sites):
+	
+	vac_state = []	
+
+	for cc in range(0,sites):
+
+		vac_state = vac_state + [np.asarray([0,1])] #basis state is down (unoccupied state), initial up-state used in method
+
+	return vac_state
+
 def random_state(sites):
 	
 	rand_state = []	
@@ -13,7 +24,7 @@ def random_state(sites):
 	for cc in range(0,sites):
 
 		if random.rand() > 0.5:
-			
+
 			rand_state = rand_state + [np.asarray([1,0])] #basis state is up (occupied state), initial down-state used in method
 		
 		else:
@@ -462,6 +473,26 @@ def floquet_evolution_eff(final_time, sites, boundary_conditions, eval, evec, in
 			obs[m,n] =  np.sum(1.0/sites * np.exp(-1j*(n-m)*kval) * obs_kspace)
 
 	return  obs , Dag_obs, eval
+
+# convert states from position to momentum space
+def position_to_momentum(sites, boundary_conditions, state):
+
+	kval = None
+	if boundary_conditions == 'PBC':
+		kval = - np.pi + 2*np.arange(0,sites)*np.pi/sites
+	elif boundary_conditions == 'ABC':
+		kval = - np.pi + (2*np.arange(0,sites)+1)*np.pi/sites
+
+	output_state = np.zeros((sites,2), dtype = complex)
+
+	for kk in range(0,sites):
+		# convert each state from position to momentum space
+			
+		for jj in range(0,sites):
+
+			output_state[kk] += state[jj][1] * np.exp(-1j * kval[jj] * jj) / np.sqrt(sites)
+
+	return output_state
 
 
 def integrator_matrices(obs, Dag_obs, J, gamma, h0_in, h1, h1_midpoint, times, dt, measure_interval, sites, boundary_conditions, method):
@@ -1530,7 +1561,7 @@ def floquet_evolution_eff_vectorized(final_time, sites, boundary_conditions, eva
     phase = np.exp(-1j * (m - n) * k) / sites
     # To handle shape, do for each pp:
     # obs[pp,m,n] = sum_k phase[m,n,k] * obs_kspace[pp,k]
-    # Similarly for Dag_obs
+    # Similarly for Dag_obs 
 
     # But phase shape is (sites, sites, sites), which can be large. So use einsum smartly:
 
