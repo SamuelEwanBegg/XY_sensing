@@ -20,7 +20,7 @@ plot = 'no'
 
 ##############
 #Inputs
-tsteps = 5000
+tsteps = 50000
 step = 0.001
 tvec = step*np.arange(0,tsteps)
 N = 4
@@ -28,12 +28,12 @@ N = 4
 ##############
 #Hamiltonian Parameters
 
-gamma = 1.0
+gamma = 0.5
 Jx = -1.0*(1 + gamma)
 Jy = -1.0*(1 - gamma)
-hz_amp = 1.5
-hz_period = 6.0/4.0 
-h0_amp = 0.3
+hz_amp = 1.0
+hz_period = 2*np.pi/1.0
+h0_amp = 1.0
 hz = -h0_amp - hz_amp*np.sin(2*np.pi/hz_period*step*np.arange(0,tsteps))
 PbC = 1 #periodic boundary conditions
 
@@ -65,22 +65,25 @@ if initial_state == 'ground_state':
 
 	H = 0.25*Jx*hb.tens(Sx,Sx,N,0,PbC) +  0.25*Jy*hb.tens(Sy,Sy,N,0,PbC) +  0.5*hz[0]*hb.tens(Sz,np.identity(2),N,1,0) 
 
-	w,v = np.linalg.eigh(H) 
+	w,v = scipy.linalg.eigh(H) 
 
 	psi_0 = copy.copy(v[:,0])
 
 	psi_initial = copy.copy(psi_0)
                                              
 # Initial Observables Operators
-sz = ED.Sz()
-sy = ED.Sy()
-sx = ED.Sx()
-magMatrixZ = hb.tens(sz,np.identity(2),N,1,0)
-magMatrixX = hb.tens(sx,np.identity(2),N,1,0)
-magMatrixY = hb.tens(sy,np.identity(2),N,1,0)
-corrMat = hb.tens(sz,sz,N,0,PbC)
-corrMatX = hb.tens(sx,sx,N,0,PbC)
-corrMatY = hb.tens(sy,sy,N,0,PbC)
+# sz = ED.Sz()
+# sy = ED.Sy()
+# sx = ED.Sx()
+
+magMatrixZ = hb.tens(Sz,np.identity(2),N,1,0) 
+magMatrixX = hb.tens(Sx,np.identity(2),N,1,0) 
+magMatrixY = hb.tens(Sy,np.identity(2),N,1,0) 
+corrMat = hb.tens(Sz,Sz,N,0,PbC)
+corrMatX = hb.tens(Sx,Sx,N,0,PbC)
+corrMatY = hb.tens(Sy,Sy,N,0,PbC)
+corrMatPM =  np.kron(np.kron(np.kron(np.dot(Sz,Sp),Sm),np.identity(2)),np.identity(2)) 
+corrMatPP =  np.kron(np.kron(np.kron(np.dot(Sz,Sp),Sp),np.identity(2)),np.identity(2)) 
 
 NA = int(N/2)
 dimsA = 2**NA
@@ -100,6 +103,9 @@ entropyR = np.zeros([tsteps,1],dtype = complex)
 correlation = np.zeros([tsteps,1],dtype = complex)
 correlationY = np.zeros([tsteps,1],dtype = complex)
 correlationX = np.zeros([tsteps,1],dtype = complex)
+correlationPM = np.zeros([tsteps,1],dtype = complex)
+correlationPP = np.zeros([tsteps,1],dtype = complex)
+
 returnprob = np.zeros([tsteps,1],dtype = complex)
 magtimeav = np.zeros([tsteps,1])
 rho = np.outer(psi_initial,np.conjugate(np.transpose(psi_initial)))
@@ -111,6 +117,9 @@ magnetisationX[0] = (1.0/float(N))*np.trace(np.dot(magMatrixX,rho)/np.trace(rho)
 correlation[0] = (1.0/float(N-1+PbC))*np.trace(np.dot(corrMat,rho)/np.trace(rho)) 
 correlationX[0] = (1.0/float(N-1+PbC))*np.trace(np.dot(corrMatX,rho)/np.trace(rho)) 
 correlationY[0] = (1.0/float(N-1+PbC))*np.trace(np.dot(corrMatX,rho)/np.trace(rho)) 
+correlationPM[0] = np.trace(np.dot(corrMatPM,rho)/np.trace(rho)) 
+correlationPP[0] = np.trace(np.dot(corrMatPP,rho)/np.trace(rho)) 
+
 reduced_density = ED.red_denL(dimsA,dimsB,rho) #trace out the right 
 entropyL[0] = -np.trace(np.dot(reduced_density,scipy.linalg.logm(reduced_density))) #left / right + bath  
 reduced_density = ED.red_denR(dimsA,dimsB,rho) #trace out the left 
@@ -147,6 +156,8 @@ for ii in range(0,np.size(tvec)-1):
 	correlation[ii+1] = (1.0/float(N-1+PbC))*np.trace(np.dot(corrMat,rho))/np.trace(rho) 
 	correlationX[ii+1] = (1.0/float(N-1+PbC))*np.trace(np.dot(corrMatX,rho))/np.trace(rho) 
 	correlationY[ii+1] = (1.0/float(N-1+PbC))*np.trace(np.dot(corrMatY,rho))/np.trace(rho) 
+	correlationPP[ii+1] = np.trace(np.dot(corrMatPP,rho))/np.trace(rho) 
+	correlationPM[ii+1] = np.trace(np.dot(corrMatPM,rho))/np.trace(rho) 
 	normalisation[ii+1] = np.trace(rho[:,:])
 	returnprob[ii+1] = np.trace(np.dot(rho,rho_init))
 	reduced_density = ED.red_denL(dimsA,dimsB,rho/np.trace(rho)) #trace out the right 
@@ -156,6 +167,7 @@ for ii in range(0,np.size(tvec)-1):
 
 if save == 'yes':
 
+	np.save(stem_save + 'time',tvec)
 	np.save(stem_save + 'magsites',magsites)
 	np.save(stem_save + 'sigmaX',magnetisationX)
 	np.save(stem_save + 'normalisation',normalisation)
@@ -163,6 +175,10 @@ if save == 'yes':
 	np.save(stem_save + 'sigmaZ',magnetisationZ)
 	np.save(stem_save + 'sigmaZsigmaZ',correlation)
 	np.save(stem_save + 'sigmaXsigmaX',correlationX)
+	np.save(stem_save + 'sigma+sigma+',correlationPP)
+	np.save(stem_save + 'sigma+sigma-',correlationPM)
+
+
 	np.save(stem_save + 'sigmaYsigmaY',correlationY)
 	
 if plot == 'yes':

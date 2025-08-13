@@ -19,24 +19,25 @@ Sz = 0.5*np.asarray([[1.0,0],[0,-1.0]])
 ##############################################################################
 #Fisher information parameters
 shift = 10**(-6)
-tol = 10**(-8)
-subsystem = 4
+tol = 10**(-12)
+subsystem = 2
 
 #############################################################################
 #Build Hamiltonian
-N = 6
+N = 4
 Jz = 0.0
-gamma = 0.1
+gamma = 0.5
 Jx = -1.0*(1 + gamma)
 Jy = -1.0*(1 - gamma)
 hx = 0.0 
 hy = 0.0
-phasepoints = 51 # points to sampling h0
-hzmat = - np.linspace(-2,2,phasepoints) #leading minus sign to make equivalent to free fermion code 
+phasepoints = 1 # points to sampling h0
+hzmat = - np.linspace(-1,1.1,phasepoints) #leading minus sign to make equivalent to free fermion code 
 PbC = 1 #periodic boundary conditions [PBC = 1 or 0 (yes or no)]
                                                                             
 ###############################################################################
 
+ignore_mat = np.zeros(phasepoints)
 Fisher = np.zeros(phasepoints)
 spinZ= np.zeros(phasepoints)
 #spinZcheck= np.zeros(phasepoints)
@@ -64,7 +65,7 @@ for ii in range(0, phasepoints):
     ################################################################################
 
     #reduced density matrix for Fisher information
-    densityMatrix = np.outer(v[:,0],np.conj(v[:,0]))
+    densityMatrix = np.outer(v[:,0],np.conjugate(v[:,0]))
     NA = subsystem
     dimsA = 2**(NA)	
     NB = N - NA
@@ -72,10 +73,18 @@ for ii in range(0, phasepoints):
     reduced_density = ED.red_den(dimsA,dimsB,densityMatrix/np.trace(densityMatrix)) 
     red_den = copy.copy(reduced_density)
 
+    if subsystem == 1:
+
+        spinZ[ii] = np.trace(np.dot(red_den , Sz))/np.trace(red_den)
+
     if subsystem == 2:
 
         spinZ[ii] = np.trace(np.dot(red_den , np.kron(Sz,np.identity(2))))/np.trace(red_den)
     
+    if subsystem == 3:
+         
+         spinZ[ii] = np.trace(np.dot(red_den , np.kron(np.kron(Sz,np.identity(2)),np.identity(2))))/np.trace(red_den)
+
     if subsystem == 4:
          
          spinZ[ii] = np.trace(np.dot(red_den , np.kron(np.kron(np.kron(Sz,np.identity(2)),np.identity(2)),np.identity(2))))/np.trace(red_den)
@@ -131,15 +140,21 @@ for ii in range(0, phasepoints):
 
             if np.abs(w[mm] + w[nn]) > tol:
                 
-                Fisheradd += 2*np.real(( np.conj(v[:,nn])  @  Dred  @ v[:,mm]  ) * ( np.conj(v[:,mm])  @  Dred  @ v[:,nn]  ) ) / ( w[mm] + w[nn] )
+                Fisheradd += 2 * np.real(( np.conj(v[:,nn])  @  Dred  @ v[:,mm]  ) * ( np.conj(v[:,mm])  @  Dred  @ v[:,nn]  ) ) / ( w[mm] + w[nn] )
+
+                #print(np.round(np.real(2 * np.real(( np.conj(v[:,nn])  @  Dred  @ v[:,mm]  ) * ( np.conj(v[:,mm])  @  Dred  @ v[:,nn]  ) ) / ( w[mm] + w[nn] )),3), np.real(np.round(Fisheradd,8)))
 
             else:
 
                 ignore += 1
           
-    print('Ignored fraction ', ignore/index)
+    print('Ignored fraction ', ignore/index, 'net ignore', ignore)
+
+    ignore_mat[ii] = copy.copy(ignore/index)
 
     Fisher[ii] = copy.copy(Fisheradd)
+
+
 
 #save outputs to desktop and plot
 if save == 'yes':
@@ -147,6 +162,8 @@ if save == 'yes':
     np.save(stem + '/hzmat',-hzmat)
     np.save(stem + '/mag',spinZ)
 
+# print(hzmat)
+# print(Fisher)
 if plot == 'yes':
     plt.plot(-hzmat,Fisher)
     plt.xlabel('h0')
@@ -159,3 +176,17 @@ if plot == 'yes':
     plt.ylabel('Sz')
     plt.show()
 
+# print(ignore_mat)
+
+wB, v = sp.linalg.eig(red_denB)
+
+wA, v = sp.linalg.eig(red_den)
+
+
+print("EigA",np.real(wA))
+print("EigB",np.real(wB))
+print("diff",np.real(np.sort(wA) - np.sort(wB))) #difference is 10^{-9} here
+
+#print(red_den)
+#print(red_denB)
+print(Fisher)

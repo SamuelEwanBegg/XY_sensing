@@ -16,12 +16,12 @@ Sz = np.asarray([[1.0,0],[0,-1.0]])
 stem = '/Users/samuelbegg/'
 stem_save = stem + 'Documents/Sensing/matrix_results/' 
 save = 'yes'
-plot = 'no'
+plot = 'yes'
 
 #####################
 #Inputs
 
-tsteps = 50000
+tsteps = 200000
 step = 0.0001
 tvec = step*np.arange(0,tsteps)
 N = 4 #system size
@@ -31,17 +31,17 @@ subsystem = 2 #Evaluate Fisher information for subsystem of this size
 #Build Hamiltonian
 
 Jz = 0.0
-gamma = 1.0
+gamma = 0.5
 Jx = -1.0*(1 + gamma)
 Jy = -1.0*(1 - gamma)
 hx = 0.0
 hy = 0.0
-hz_amp = 1.5
-hz_period = 6.0/4.0 
-h0_amp = 0.3
+hz_amp = 1.0
+hz_period = 2*np.pi/1.0
+h0_amp = 1.0
 hz = -h0_amp - hz_amp*np.sin(2*np.pi/hz_period*step*np.arange(0,tsteps))
-shift = 0.001
-tol = 10**(-6)
+shift = 10**(-6)
+tol = 10**(-12)
 hz_shift = hz - shift
 PbC = 1
 
@@ -66,9 +66,10 @@ if initial_state == 'ground_state':
 
 	H = 0.25*Jx*hb.tens(Sx,Sx,N,0,PbC) +  0.25*Jy*hb.tens(Sy,Sy,N,0,PbC) +  0.5*hz[0]*hb.tens(Sz,np.identity(2),N,1,0) 
 
-	w,v = np.linalg.eigh(H) 
+	w,v = scipy.linalg.eigh(H) 
 
 	psi_0 = copy.copy(v[:,0])
+
 
 psi_initial = copy.deepcopy(psi_0)
                                                                                               
@@ -83,12 +84,15 @@ dimsA = 2**NA
 NB = N - NA
 dimsB = 2**NB
 
+
 # Initialize
-Fisher = np.zeros(int(tsteps/100))
-rho = np.outer(psi_initial,np.conjugate(np.transpose(psi_initial)))
+Fisher = np.zeros(int(tsteps/100)+1)
+rho = np.outer(psi_initial,np.conjugate(psi_initial))
 rho_init = copy.copy(rho)
 reduced_density = []
 reduced_densityB = []
+
+reduced_density = reduced_density + [ED.red_den(dimsA,dimsB,rho/np.trace(rho))] 
 
 # Perform the integration
 for ii in range(0,np.size(tvec)-1):
@@ -103,13 +107,27 @@ for ii in range(0,np.size(tvec)-1):
 
 	if ii%100 == 0:
 
-		reduced_density = reduced_density + [ED.red_denL(dimsA,dimsB,rho/np.trace(rho))] 
+		reduced_density = reduced_density + [ED.red_den(dimsA,dimsB,rho/np.trace(rho))] 
 		
 		print(ii) 
 
 # Now do the shifted evaluation h -> h + shift
 		
-rho = copy.deepcopy(rho_init)
+if initial_state == 'ground_state':                                        
+
+	H = 0.25*Jx*hb.tens(Sx,Sx,N,0,PbC) +  0.25*Jy*hb.tens(Sy,Sy,N,0,PbC) +  0.5*hz_shift[0]*hb.tens(Sz,np.identity(2),N,1,0) 
+
+	w,v = scipy.linalg.eigh(H) 
+
+	psi_0 = copy.copy(v[:,0])
+
+	rho = np.outer(psi_0,np.conjugate(psi_0))
+	
+else:
+
+	rho = copy.deepcopy(rho_init)
+
+reduced_densityB = reduced_densityB + [ED.red_den(dimsA,dimsB,rho/np.trace(rho))] 
 
 for ii in range(0,np.size(tvec)-1):
 	
@@ -123,42 +141,55 @@ for ii in range(0,np.size(tvec)-1):
 
 	if ii%100 == 0:
 
-		reduced_densityB = reduced_densityB + [ED.red_denL(dimsA,dimsB,rho/np.trace(rho))] 
+		reduced_densityB = reduced_densityB + [ED.red_den(dimsA,dimsB,rho/np.trace(rho))] 
 		
 		print(ii)
 
 # Calculate the Fisher information
 		
-for ii in range(0,np.size(Fisher)):
-	
-    Fisheradd = 0
-	
-    Dred = (reduced_densityB[ii] - reduced_density[ii])/shift
 
-    w, v = sp.linalg.eig(reduced_density[ii])
+for ii in range(0,np.size(reduced_density,0)):
 	
-    for nn in range(0,np.size(w)):
-		
-        for mm in range(0,np.size(w)):
-           
-            if np.abs(w[mm] + w[nn]) > tol:
-				
-                Fisheradd += 2*np.real(( np.conj(v[:,nn])  @  Dred  @ v[:,mm]  ) * ( np.conj(v[:,mm])  @  Dred  @ v[:,nn]  ) ) / ( w[mm] + w[nn] )
+	ignore = 0
+	
+	Fisheradd = 0
 
-    Fisher[ii] = copy.copy(Fisheradd)
+	Dred = (reduced_densityB[ii] - reduced_density[ii])/shift
+
+	w, v = sp.linalg.eig(reduced_density[ii])
+
+	for nn in range(0,np.size(w)):
+
+		for mm in range(0,np.size(w)):
+
+			if np.abs(w[mm] + w[nn]) > tol:
+
+				Fisheradd += 2 * np.real(( np.conj(v[:,nn])  @  Dred  @ v[:,mm]  ) * ( np.conj(v[:,mm])  @  Dred  @ v[:,nn]  ) ) / ( w[mm] + w[nn] )
+
+			else:
+
+				ignore += 1
+
+	Fisher[ii] = copy.copy(Fisheradd)
+	
+	print(ignore)
 
 
 if save == 'yes':
 
 	np.save(stem_save + 'Fisher', Fisher)
+	np.save(stem_save + 'time2',tvec)
+
 	
 if plot == 'yes':
 
-	plt.plot(step*np.arange(0,np.size(Fisher)),Fisher,'rx',label = 'X')
+	plt.plot(step/100*np.arange(0,np.size(Fisher)),Fisher,'rx',label = 'X')
 	plt.legend()
 	plt.show()
 
-
+print(reduced_density[0])
+#print(reduced_densityB)
+print(Fisher)
 
 
 
