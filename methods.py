@@ -305,51 +305,6 @@ def integrator_BdG(J, gamma, h0_in, h1_in, h1_in_midpoint, oneperiod_steps, dt, 
 
 	return state
 
-def integrate_bdg_eff(initial_state, h1_amp, h1_period, J, gamma, h0_in, dt, oneperiod_steps, sites, boundary_conditions):
-
-    if boundary_conditions == 'PBC':
-        kvec = -np.pi + 2*np.arange(0, sites)*np.pi/sites
-    elif boundary_conditions == 'ABC':
-        kvec = -np.pi + (2*np.arange(0, sites)+1)*np.pi/sites
-    else:
-        raise ValueError("Unsupported boundary condition")
-
-    time_array = np.arange(oneperiod_steps) * dt
-
-    def rhs(t, y, k):
-        """
-        Time-dependent Schrödinger equation: d/dt |ψ⟩ = -i H(t) |ψ⟩
-        """
-        cosk = np.cos(k)
-        sink = np.sin(k)
-        h = h0_in + h1_amp * np.sin(2*np.pi/(h1_period)*t) 
-        H = np.array([
-            [-(J*cosk + h), 1j * J * gamma * sink],
-            [-1j * J * gamma * sink, (J*cosk + h)]
-        ])
-        return -1j * H @ y
-
-
-    final_state = np.zeros_like(initial_state, dtype=complex)
-	
-
-    for kk, k in enumerate(kvec):
-        y0 = initial_state[kk]
-
-        sol = solve_ivp(
-            fun=lambda t, y: rhs(t, y, k),
-            t_span=(0, oneperiod_steps*dt),
-            y0=y0,
-            method='RK45',
-			t_eval= np.arange(oneperiod_steps + 1) * dt,  # Only need final state after one period
-            rtol=1e-10,
-            atol=1e-12
-        )
-
-        final_state[kk] = sol.y[:, -1]
-
-    return final_state
-
 
 def floquet_eigsystem(state):
 	
@@ -475,24 +430,24 @@ def floquet_evolution_eff(final_time, sites, boundary_conditions, eval, evec, in
 	return  obs , Dag_obs, eval
 
 # convert states from position to momentum space
-def position_to_momentum(sites, boundary_conditions, state):
+# def position_to_momentum(sites, boundary_conditions, state):
 
-	kval = None
-	if boundary_conditions == 'PBC':
-		kval = - np.pi + 2*np.arange(0,sites)*np.pi/sites
-	elif boundary_conditions == 'ABC':
-		kval = - np.pi + (2*np.arange(0,sites)+1)*np.pi/sites
+# 	kval = None
+# 	if boundary_conditions == 'PBC':
+# 		kval = - np.pi + 2*np.arange(0,sites)*np.pi/sites
+# 	elif boundary_conditions == 'ABC':
+# 		kval = - np.pi + (2*np.arange(0,sites)+1)*np.pi/sites
 
-	output_state = np.zeros((sites,2), dtype = complex)
+# 	output_state = np.zeros((sites,2), dtype = complex)
 
-	for kk in range(0,sites):
-		# convert each state from position to momentum space
+# 	for kk in range(0,sites):
+# 		# convert each state from position to momentum space
 			
-		for jj in range(0,sites):
+# 		for jj in range(0,sites):
 
-			output_state[kk] += state[jj][1] * np.exp(-1j * kval[jj] * jj) / np.sqrt(sites)
+# 			output_state[kk] += state[jj][1] * np.exp(-1j * kval[jj] * jj) / np.sqrt(sites)
 
-	return output_state
+# 	return output_state
 
 
 def integrator_matrices(obs, Dag_obs, J, gamma, h0_in, h1, h1_midpoint, times, dt, measure_interval, sites, boundary_conditions, method):
@@ -683,8 +638,9 @@ def integrator_matrices_eff(obs, Dag_obs, J, gamma, h0_in, h1, times, dt, sites,
 		Dag_dobs = (
 			-J/2 * M @ Dag_obs + J/2 * np.conj(Ann_obs @ M.T)
 			- J/2 * gamma * obs @ N.T + J/2 * np.conj(gamma * N @ obs)
-			- J/2 * gamma * N - 2 * h * Dag_obs
+			- 2 * h * Dag_obs - J/2 * gamma * N 
 		)
+		
 
 		# Combine into a single flattened vector
 		dydt = 1j * np.concatenate([dobs.ravel(), Dag_dobs.ravel()])
@@ -708,7 +664,7 @@ def integrator_matrices_eff(obs, Dag_obs, J, gamma, h0_in, h1, times, dt, sites,
 		t_span=(0, dt*times),
 		y0=y0,
 		method=method,              #'RK45, DOP853', 'BDF'
-		t_eval=np.arange(0, dt*times, dt),
+		t_eval=np.arange(0, dt*(times), dt),
 		vectorized=False,           # Set to True if your RHS supports vector inputs
 		atol=atol,
 		rtol=rtol
@@ -718,7 +674,7 @@ def integrator_matrices_eff(obs, Dag_obs, J, gamma, h0_in, h1, times, dt, sites,
 	Corr_mat_list = []
 	Dag_mat_list = []
 
-	corr_diag = np.zeros([sites,int(times)],dtype = complex)
+	corr_diag = np.zeros([sites,int(num_steps)],dtype = complex)
 
 	for k in range(num_steps):
 		y = sol.y[:, k]

@@ -20,7 +20,7 @@ plot = 'no'
 
 ##############
 #Inputs
-tsteps = 50000
+tsteps = 5000
 step = 0.001
 tvec = step*np.arange(0,tsteps)
 N = 4
@@ -28,19 +28,19 @@ N = 4
 ##############
 #Hamiltonian Parameters
 
-gamma = 0.5
+gamma = 5.0
 Jx = -1.0*(1 + gamma)
 Jy = -1.0*(1 - gamma)
-hz_amp = 1.0
+hz_amp = 0.0
 hz_period = 2*np.pi/1.0
-h0_amp = 1.0
+h0_amp = 0.0
 hz = -h0_amp - hz_amp*np.sin(2*np.pi/hz_period*step*np.arange(0,tsteps))
 PbC = 1 #periodic boundary conditions
 
 ##############
 #Initial State
 
-initial_state = 'ground_state'
+initial_state = 'manual'
 
 #Manually set the initial state
 if initial_state == 'manual':
