@@ -615,7 +615,7 @@ def integrator_matrices(obs, Dag_obs, J, gamma, h0_in, h1, h1_midpoint, times, d
 
 	return Corr_mat_list, Dag_mat_list, corr_diag
 
-def integrator_matrices_eff(obs, Dag_obs, J, gamma, h0_in, h1, times, dt, sites, boundary_conditions, method, atol, rtol):
+def integrator_matrices_eff(obs, Dag_obs, J, gamma, h0_in, h1_amp, omega, times, dt, sites, boundary_conditions, method, atol, rtol):
 
 	startTime = datetime.now()
 	 
@@ -623,12 +623,15 @@ def integrator_matrices_eff(obs, Dag_obs, J, gamma, h0_in, h1, times, dt, sites,
 
 	N = Nmatrix(sites, boundary_conditions)
 
-	def system_rhs(t, y, J, gamma, h0_in, h1_func, M, N, sites):
+	def system_rhs(t, y, J, gamma, h0_in, h1_amp, omega, M, N, sites):
+		
+		h = h0_in + h1_amp * np.sin(omega * t)
+		
 		obs = y[:sites*sites].reshape((sites, sites))
-		Dag_obs = y[sites*sites:].reshape((sites, sites))
 
+		Dag_obs = y[sites*sites:].reshape((sites, sites)
+									)
 		Ann_obs = np.conj(Dag_obs.T)
-		h = h0_in + h1_func(t)  # time-dependent field
 
 		dobs = (
 			-J/2 * M @ obs + J/2 * obs @ M.T
@@ -646,21 +649,21 @@ def integrator_matrices_eff(obs, Dag_obs, J, gamma, h0_in, h1, times, dt, sites,
 		dydt = 1j * np.concatenate([dobs.ravel(), Dag_dobs.ravel()])
 		return dydt
 
-	def make_h1_func(h1_array, dt):
-		time_grid = np.arange(len(h1_array)) * dt
-		return interp1d(time_grid, h1_array, kind='linear', fill_value='extrapolate')
+	# def make_h1_func(h1_array, dt):
+	# 	time_grid = np.arange(len(h1_array)) * dt
+	# 	return interp1d(time_grid, h1_array, kind='linear', fill_value='extrapolate')
 	
 	# Initialization
 	obs0 = copy.copy(obs)          # shape: (L, L)
 	Dag_obs0 = copy.copy(Dag_obs)  # shape: (L, L)
 	y0 = np.concatenate([obs0.ravel(), Dag_obs0.ravel()])
 
-	# Create interpolated h1 function
-	h1_func = make_h1_func(h1, dt)
+	# # Create interpolated h1 function
+	# h1_func = make_h1_func(h1, dt)
 
 	# Solve
 	sol = solve_ivp(
-		fun=lambda t, y: system_rhs(t, y, J, gamma, h0_in, h1_func, M, N, sites),
+		fun=lambda t, y: system_rhs(t, y, J, gamma, h0_in, h1_amp, omega, M, N, sites),
 		t_span=(0, dt*times),
 		y0=y0,
 		method=method,              #'RK45, DOP853', 'BDF'
